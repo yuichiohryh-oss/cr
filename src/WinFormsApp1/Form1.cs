@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -13,7 +14,8 @@ public partial class Form1 : Form
     private enum ActiveRoi
     {
         Motion,
-        Elixir
+        Elixir,
+        Hand
     }
 
     private readonly PictureBox _pictureBox;
@@ -22,16 +24,21 @@ public partial class Form1 : Form
     private IMotionAnalyzer _motionAnalyzer;
     private IElixirEstimator _elixirEstimator;
     private ISuggestionEngine _suggestionEngine;
+    private ICardRecognizer? _cardRecognizer;
+    private CardSelector _cardSelector = new();
     private readonly PropertyGrid _propertyGrid;
     private readonly Button _saveButton;
     private readonly Button _reloadButton;
     private readonly Label _settingsPathLabel;
+    private readonly Label _cardsStatusLabel;
     private readonly RadioButton _motionRoiRadio;
     private readonly RadioButton _elixirRoiRadio;
+    private readonly RadioButton _handRoiRadio;
 
     private Bitmap? _prevFrame;
     private Suggestion _lastSuggestion;
     private ElixirResult _lastElixir;
+    private HandState _lastHand;
     private AppSettings _settings;
     private readonly string _settingsPath;
     private ActiveRoi _activeRoi;
@@ -75,6 +82,15 @@ public partial class Form1 : Form
             Padding = new Padding(8, 0, 0, 0)
         };
 
+        _cardsStatusLabel = new Label
+        {
+            Dock = DockStyle.Top,
+            Height = 28,
+            Text = "Cards: not loaded",
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(8, 0, 0, 0)
+        };
+
         var buttonPanel = new FlowLayoutPanel
         {
             Dock = DockStyle.Top,
@@ -109,11 +125,19 @@ public partial class Form1 : Form
             Location = new Point(120, 20),
             AutoSize = true
         };
+        _handRoiRadio = new RadioButton
+        {
+            Text = "Hand ROI",
+            Location = new Point(10, 42),
+            AutoSize = true
+        };
         _motionRoiRadio.CheckedChanged += (_, _) => { if (_motionRoiRadio.Checked) _activeRoi = ActiveRoi.Motion; };
         _elixirRoiRadio.CheckedChanged += (_, _) => { if (_elixirRoiRadio.Checked) _activeRoi = ActiveRoi.Elixir; };
+        _handRoiRadio.CheckedChanged += (_, _) => { if (_handRoiRadio.Checked) _activeRoi = ActiveRoi.Hand; };
 
         roiGroup.Controls.Add(_motionRoiRadio);
         roiGroup.Controls.Add(_elixirRoiRadio);
+        roiGroup.Controls.Add(_handRoiRadio);
 
         _propertyGrid = new PropertyGrid
         {
@@ -124,6 +148,7 @@ public partial class Form1 : Form
         settingsPanel.Controls.Add(_propertyGrid);
         settingsPanel.Controls.Add(roiGroup);
         settingsPanel.Controls.Add(buttonPanel);
+        settingsPanel.Controls.Add(_cardsStatusLabel);
         settingsPanel.Controls.Add(_settingsPathLabel);
 
         Controls.Add(_pictureBox);
@@ -131,8 +156,8 @@ public partial class Form1 : Form
 
         _capture = new WindowCapture();
 
-        _activeRoi = ActiveRoi.Elixir;
-        _elixirRoiRadio.Checked = true;
+        _activeRoi = ActiveRoi.Hand;
+        _handRoiRadio.Checked = true;
         ApplySettings(_settings);
 
         _timer = new System.Windows.Forms.Timer
@@ -168,6 +193,12 @@ public partial class Form1 : Form
 
         _lastSuggestion = suggestion;
         _lastElixir = elixir;
+        _lastHand = _cardRecognizer != null ? _cardRecognizer.Recognize(frame) : HandState.Empty;
+        string selectedCard = _cardSelector.SelectDefenseCard(_lastHand);
+        if (_lastSuggestion.HasSuggestion && !string.IsNullOrWhiteSpace(selectedCard))
+        {
+            _lastSuggestion = new Suggestion(true, _lastSuggestion.X01, _lastSuggestion.Y01, $"{_lastSuggestion.Text}: {selectedCard}");
+        }
 
         Image? oldImage = _pictureBox.Image;
         _pictureBox.Image = frame;
@@ -198,12 +229,14 @@ public partial class Form1 : Form
         using var debugBrush = new SolidBrush(Color.Lime);
         using var motionPen = new Pen(Color.Cyan, 2f);
         using var elixirPen = new Pen(Color.Orange, 2f);
+        using var handPen = new Pen(Color.Magenta, 2f);
         using var dragPen = new Pen(Color.White, 2f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
         using var font = new Font("Segoe UI", 12f, FontStyle.Bold);
         using var debugFont = new Font("Segoe UI", 10f, FontStyle.Regular);
 
         DrawRoi(e.Graphics, displayRect, _settings.Motion.Roi, motionPen);
         DrawRoi(e.Graphics, displayRect, _settings.Elixir.Roi, elixirPen);
+        DrawRoi(e.Graphics, displayRect, _settings.Cards.HandRoi, handPen);
 
         if (_dragging && _dragRect.Width > 1f && _dragRect.Height > 1f)
         {
@@ -222,6 +255,9 @@ public partial class Form1 : Form
 
         string elixirText = $"Elixir: {_lastElixir.ElixirInt}/10";
         e.Graphics.DrawString(elixirText, debugFont, debugBrush, displayRect.Left + 8f, displayRect.Top + 8f);
+
+        string handText = _lastHand.Slots.Length == 0 ? "Hand: (unknown)" : $"Hand: {string.Join(\", \", _lastHand.Slots)}";
+        e.Graphics.DrawString(handText, debugFont, debugBrush, displayRect.Left + 8f, displayRect.Top + 28f);
     }
 
     private static RectangleF GetImageDisplayRect(PictureBox pictureBox)
@@ -315,9 +351,13 @@ public partial class Form1 : Form
         {
             _settings.Motion.Roi = roi;
         }
-        else
+        else if (_activeRoi == ActiveRoi.Elixir)
         {
             _settings.Elixir.Roi = roi;
+        }
+        else
+        {
+            _settings.Cards.HandRoi = roi;
         }
 
         _propertyGrid.Refresh();
@@ -339,8 +379,11 @@ public partial class Form1 : Form
         _motionAnalyzer = new MotionAnalyzer(settings.Motion.ToCore());
         _elixirEstimator = new ElixirEstimator(settings.Elixir.ToCore());
         _suggestionEngine = new SuggestionEngine(settings.Suggestion.ToCore());
+        _cardSelector = new CardSelector();
+        _cardRecognizer = TryCreateCardRecognizer(settings.Cards);
         _lastSuggestion = Suggestion.None;
         _lastElixir = new ElixirResult(0f, 0);
+        _lastHand = HandState.Empty;
     }
 
     private void SaveAndApplySettings()
@@ -359,5 +402,82 @@ public partial class Form1 : Form
         _settings = AppSettingsStorage.LoadOrCreate(_settingsPath);
         _propertyGrid.SelectedObject = _settings;
         ApplySettings(_settings);
+    }
+
+    private ICardRecognizer? TryCreateCardRecognizer(CardSettingsDto settings)
+    {
+        string? dir = ResolveTemplateDir(settings.TemplateDir);
+        if (dir == null)
+        {
+            _cardsStatusLabel.Text = "Cards: template dir not found";
+            return null;
+        }
+
+        var templates = new List<CardTemplate>();
+        foreach (string file in Directory.GetFiles(dir, "*.png"))
+        {
+            string id = Path.GetFileNameWithoutExtension(file).ToLowerInvariant();
+            using var bmp = new Bitmap(file);
+            using var bmp24 = bmp.PixelFormat == PixelFormat.Format24bppRgb
+                ? (Bitmap)bmp.Clone()
+                : bmp.Clone(new Rectangle(0, 0, bmp.Width, bmp.Height), PixelFormat.Format24bppRgb);
+            templates.Add(CardTemplate.FromBitmap(id, bmp24, settings.SampleSize));
+        }
+
+        if (templates.Count == 0)
+        {
+            _cardsStatusLabel.Text = "Cards: templates not found";
+            return null;
+        }
+
+        _cardsStatusLabel.Text = $"Cards: {templates.Count} templates";
+        return new CardRecognizer(settings.ToCore(), templates);
+    }
+
+    private static string? ResolveTemplateDir(string templateDir)
+    {
+        if (string.IsNullOrWhiteSpace(templateDir))
+        {
+            return null;
+        }
+
+        if (Path.IsPathRooted(templateDir) && Directory.Exists(templateDir))
+        {
+            return templateDir;
+        }
+
+        string baseDir = AppContext.BaseDirectory;
+        string candidate = Path.GetFullPath(Path.Combine(baseDir, templateDir));
+        if (Directory.Exists(candidate))
+        {
+            return candidate;
+        }
+
+        string? repoRoot = FindRepoRoot(baseDir);
+        if (repoRoot != null)
+        {
+            candidate = Path.GetFullPath(Path.Combine(repoRoot, templateDir));
+            if (Directory.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? FindRepoRoot(string start)
+    {
+        var dir = new DirectoryInfo(start);
+        while (dir != null)
+        {
+            if (File.Exists(Path.Combine(dir.FullName, "WinFormsApp1.slnx")))
+            {
+                return dir.FullName;
+            }
+            dir = dir.Parent;
+        }
+
+        return null;
     }
 }

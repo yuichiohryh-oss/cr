@@ -17,3 +17,8 @@ public interface ISuggestionEngine
 {
     Suggestion Decide(MotionResult motion, ElixirResult elixir, DateTime now);
 }
+
+public interface ICardRecognizer
+{
+    HandState Recognize(Bitmap frame);
+}

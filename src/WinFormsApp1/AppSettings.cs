@@ -11,6 +11,7 @@ public sealed class AppSettings
     public MotionSettingsDto Motion { get; set; } = new();
     public ElixirSettingsDto Elixir { get; set; } = new();
     public SuggestionSettingsDto Suggestion { get; set; } = new();
+    public CardSettingsDto Cards { get; set; } = new();
 
     public static AppSettings CreateDefault()
     {
@@ -41,6 +42,15 @@ public sealed class AppSettings
                 NeedElixir = 3,
                 RequiredStreak = 2,
                 CooldownMs = 700
+            },
+            Cards = new CardSettingsDto
+            {
+                TemplateDir = "tests/WinFormsApp1.Core.Tests/fixtures/cards",
+                HandRoi = new RoiSettings { X = 0.05f, Y = 0.90f, Width = 0.90f, Height = 0.09f },
+                SlotCount = 4,
+                SlotInnerPadding01 = 0.08f,
+                SampleSize = 24,
+                MinScore = 0.70f
             }
         };
     }
@@ -107,6 +117,30 @@ public sealed class SuggestionSettingsDto
     }
 
     public override string ToString() => "Suggestion";
+}
+
+[TypeConverter(typeof(ExpandableObjectConverter))]
+public sealed class CardSettingsDto
+{
+    public string TemplateDir { get; set; } = string.Empty;
+    public RoiSettings HandRoi { get; set; } = new();
+    public int SlotCount { get; set; }
+    public float SlotInnerPadding01 { get; set; }
+    public int SampleSize { get; set; }
+    public float MinScore { get; set; }
+
+    public CardRecognitionSettings ToCore()
+    {
+        return new CardRecognitionSettings(
+            HandRoi.ToCore(),
+            SlotCount,
+            SlotInnerPadding01,
+            SampleSize,
+            MinScore
+        );
+    }
+
+    public override string ToString() => "Cards";
 }
 
 [TypeConverter(typeof(ExpandableObjectConverter))]
