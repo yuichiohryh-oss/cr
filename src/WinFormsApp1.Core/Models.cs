@@ -49,7 +49,9 @@ public readonly record struct ElixirSettings(
     int PurpleGMax,
     int PurpleBMin,
     int PurpleRBMaxDiff,
-    int SmoothingWindow
+    int SmoothingWindow,
+    float EmptyBaseline01,
+    float FullBaseline01
 );
 
 public readonly record struct SuggestionSettings(

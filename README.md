@@ -1,9 +1,9 @@
-# Clash Royale Advisor MVP (WinForms + scrcpy)
+ï»¿# Clash Royale Advisor MVP (WinForms + scrcpy)
 
 ## Purpose
-Clash Royale ‚ð scrcpy ‚Å PC ‚Éƒ~ƒ‰[‚µAWinForms ƒAƒvƒŠ‚Å‰æ–ÊƒLƒƒƒvƒ`ƒƒE‰ðÍ‚µ‚Ä
-ŽŸ‚Éu‚¢‚Â / ‚Ç‚±v‚ÉƒJ[ƒh‚ðo‚·‚×‚«‚©‚ð’ñˆÄ•\Ž¦‚·‚é MVP ‚ðŽÀ‘•‚µ‚Ü‚·B
-Ž©“®‘€ì‚Ís‚í‚¸A’ñˆÄ‚Ì‚Ý‚ð•\Ž¦‚µ‚Ü‚·B
+Clash Royale ï¿½ï¿½ scrcpy ï¿½ï¿½ PC ï¿½Éƒ~ï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½AWinForms ï¿½Aï¿½vï¿½ï¿½ï¿½Å‰ï¿½ÊƒLï¿½ï¿½ï¿½vï¿½`ï¿½ï¿½ï¿½Eï¿½ï¿½Í‚ï¿½ï¿½ï¿½
+ï¿½ï¿½ï¿½Éuï¿½ï¿½ï¿½ï¿½ / ï¿½Ç‚ï¿½ï¿½vï¿½ÉƒJï¿½[ï¿½hï¿½ï¿½oï¿½ï¿½ï¿½×‚ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä•\ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ MVP ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ü‚ï¿½ï¿½B
+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ísï¿½í‚¸ï¿½Aï¿½ï¿½Ä‚Ì‚Ý‚ï¿½\ï¿½ï¿½ï¿½ï¿½ï¿½Ü‚ï¿½ï¿½B
 
 ## System Diagram
 
@@ -20,14 +20,14 @@ Suggestion (dot + text)
 
 ## Setup
 
-1) Android ’[––‚Å USB ƒfƒoƒbƒO‚ð—LŒø‰»
-2) scrcpy ‚ð‹N“® (•K{‚ÌƒEƒBƒ“ƒhƒEƒ^ƒCƒgƒ‹Žw’è)
+1) Android ï¿½[ï¿½ï¿½ï¿½ï¿½ USB ï¿½fï¿½oï¿½bï¿½Oï¿½ï¿½Lï¿½ï¿½ï¿½ï¿½
+2) scrcpy ï¿½ï¿½Nï¿½ï¿½ (ï¿½Kï¿½{ï¿½ÌƒEï¿½Bï¿½ï¿½ï¿½hï¿½Eï¿½^ï¿½Cï¿½gï¿½ï¿½ï¿½wï¿½ï¿½)
 
 ```
 scrcpy --window-title "ClashRoyale"
 ```
 
-3) ƒrƒ‹ƒh / ŽÀs
+3) ï¿½rï¿½ï¿½ï¿½h / ï¿½ï¿½ï¿½s
 
 ```
 dotnet build
@@ -37,34 +37,34 @@ dotnet build
 dotnet run --project src/WinFormsApp1
 ```
 
-4) unsafe —LŒø‰»
+4) unsafe ï¿½Lï¿½ï¿½ï¿½ï¿½
 
-–{ƒŠƒ|ƒWƒgƒŠ‚Å‚Í `AllowUnsafeBlocks` ‚ð csproj ‚ÉÝ’èÏ‚Ý‚Å‚·B
+ï¿½{ï¿½ï¿½ï¿½|ï¿½Wï¿½gï¿½ï¿½ï¿½Å‚ï¿½ `AllowUnsafeBlocks` ï¿½ï¿½ csproj ï¿½ÉÝ’ï¿½Ï‚Ý‚Å‚ï¿½ï¿½B
 
 ## Current Features
 
-- scrcpy ƒEƒBƒ“ƒhƒE‚ðƒLƒƒƒvƒ`ƒƒ‚µ‚Ä•\Ž¦
-- ƒtƒŒ[ƒ€·•ª‚Ì“®‘ÌŒŸo
-- Ž©w‘¤‚Å“®‚«‚ª‘‚¦‚½‚ç–h‰q’ñˆÄ (dot + text)
-- ƒGƒŠƒNƒT[ƒo[‚ÌF”»’è‚É‚æ‚é„’è‚Æ•\Ž¦
+- scrcpy ï¿½Eï¿½Bï¿½ï¿½ï¿½hï¿½Eï¿½ï¿½Lï¿½ï¿½ï¿½vï¿½`ï¿½ï¿½ï¿½ï¿½ï¿½Ä•\ï¿½ï¿½
+- ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì“ï¿½ï¿½ÌŒï¿½ï¿½o
+- ï¿½ï¿½ï¿½wï¿½ï¿½ï¿½Å“ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½hï¿½qï¿½ï¿½ï¿½ (dot + text)
+- ï¿½Gï¿½ï¿½ï¿½Nï¿½Tï¿½[ï¿½oï¿½[ï¿½ÌFï¿½ï¿½ï¿½ï¿½É‚ï¿½é„ï¿½ï¿½Æ•\ï¿½ï¿½
 
 ## Suggestion Logic
 
-- MotionAnalyzer ‚ªŽ©w‘¤ ROI ‚Ì“®‘Ì—Ê‚ð¶‰E•Ê‚ÉWŒv
-- “®‘Ì‚ªè‡’l‚ð’´‚¦‚é‚Æ DefenseTrigger = true
-- ElixirEstimator ‚ªƒGƒŠƒNƒT[ƒo[‚ÌŽ‡F”ä—¦‚©‚ç 0-10 ‚ð„’è
-- SuggestionEngine ‚ª
+- MotionAnalyzer ï¿½ï¿½ï¿½ï¿½ï¿½wï¿½ï¿½ ROI ï¿½Ì“ï¿½ï¿½Ì—Ê‚ï¿½ï¿½ï¿½Eï¿½Ê‚ÉWï¿½v
+- ï¿½ï¿½ï¿½Ì‚ï¿½è‡’lï¿½ð’´‚ï¿½ï¿½ï¿½ï¿½ DefenseTrigger = true
+- ElixirEstimator ï¿½ï¿½ï¿½Gï¿½ï¿½ï¿½Nï¿½Tï¿½[ï¿½oï¿½[ï¿½ÌŽï¿½ï¿½Fï¿½ä—¦ï¿½ï¿½ï¿½ï¿½ 0-10 ï¿½ð„’ï¿½
+- SuggestionEngine ï¿½ï¿½
   - DefenseTrigger
   - Elixir >= need (default: 3)
-  - 2 ƒtƒŒ[ƒ€˜A‘±‚ÅƒgƒŠƒK[
-  - 700ms ƒN[ƒ‹ƒ_ƒEƒ“
-  ‚ð–ž‚½‚µ‚½‚Æ‚«‚É’ñˆÄ‚ðo‚µ‚Ü‚·
-- ’ñˆÄˆÊ’u‚Í’èÕƒ|ƒCƒ“ƒg‚ÖƒXƒiƒbƒv
+  - 2 ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Aï¿½ï¿½ï¿½Åƒgï¿½ï¿½ï¿½Kï¿½[
+  - 700ms ï¿½Nï¿½[ï¿½ï¿½ï¿½_ï¿½Eï¿½ï¿½
+  ï¿½ð–ž‚ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ‚ï¿½ï¿½É’ï¿½Ä‚ï¿½oï¿½ï¿½ï¿½Ü‚ï¿½
+- ï¿½ï¿½ÄˆÊ’uï¿½Í’ï¿½Õƒ|ï¿½Cï¿½ï¿½ï¿½gï¿½ÖƒXï¿½iï¿½bï¿½v
 
 ## Design Policy
 
-- Ž©“®‘€ì‚ÍˆêØs‚í‚È‚¢ (ƒ^ƒbƒv‘—M / “ü—Í’“ü‚È‚µ)
-- ‰æ–Êã‚Ì’ñˆÄ•\Ž¦‚Ì‚Ý
+- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Íˆï¿½Øsï¿½ï¿½È‚ï¿½ (ï¿½^ï¿½bï¿½vï¿½ï¿½ï¿½M / ï¿½ï¿½ï¿½Í’ï¿½ï¿½ï¿½ï¿½È‚ï¿½)
+- ï¿½ï¿½Êï¿½Ì’ï¿½Ä•\ï¿½ï¿½ï¿½Ì‚ï¿½
 
 ## Roadmap
 
