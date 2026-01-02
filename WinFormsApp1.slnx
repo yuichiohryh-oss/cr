@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/WinFormsApp1.Core/WinFormsApp1.Core.csproj" />
+    <Project Path="src/WinFormsApp1.Infrastructure/WinFormsApp1.Infrastructure.csproj" />
+    <Project Path="src/WinFormsApp1/WinFormsApp1.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/WinFormsApp1.Core.Tests/WinFormsApp1.Core.Tests.csproj" />
+  </Folder>
+</Solution>

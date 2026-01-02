@@ -1,0 +1,16 @@
+﻿# Build artifacts
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Rider
+.idea/
+
+# OS files
+Thumbs.db
+.DS_Store
+2）
