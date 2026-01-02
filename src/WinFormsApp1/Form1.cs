@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.IO;
 using System.Windows.Forms;
 using WinFormsApp1.Core;
 using WinFormsApp1.Infrastructure;
@@ -12,13 +13,19 @@ public partial class Form1 : Form
     private readonly PictureBox _pictureBox;
     private readonly System.Windows.Forms.Timer _timer;
     private readonly WindowCapture _capture;
-    private readonly IMotionAnalyzer _motionAnalyzer;
-    private readonly IElixirEstimator _elixirEstimator;
-    private readonly ISuggestionEngine _suggestionEngine;
+    private IMotionAnalyzer _motionAnalyzer;
+    private IElixirEstimator _elixirEstimator;
+    private ISuggestionEngine _suggestionEngine;
+    private readonly PropertyGrid _propertyGrid;
+    private readonly Button _saveButton;
+    private readonly Button _reloadButton;
+    private readonly Label _settingsPathLabel;
 
     private Bitmap? _prevFrame;
     private Suggestion _lastSuggestion;
     private ElixirResult _lastElixir;
+    private AppSettings _settings;
+    private readonly string _settingsPath;
 
     public Form1()
     {
@@ -27,44 +34,63 @@ public partial class Form1 : Form
         Text = "Clash Royale Advisor";
         ClientSize = new Size(960, 540);
 
+        _settingsPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+        _settings = AppSettingsStorage.LoadOrCreate(_settingsPath);
+
         _pictureBox = new PictureBox
         {
             Dock = DockStyle.Fill,
             SizeMode = PictureBoxSizeMode.Zoom,
             BackColor = Color.Black
         };
-        Controls.Add(_pictureBox);
         _pictureBox.Paint += PictureBox_Paint;
+
+        var settingsPanel = new Panel
+        {
+            Dock = DockStyle.Right,
+            Width = 320
+        };
+
+        _settingsPathLabel = new Label
+        {
+            Dock = DockStyle.Top,
+            Height = 36,
+            Text = $"Settings: {Path.GetFileName(_settingsPath)}",
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(8, 0, 0, 0)
+        };
+
+        var buttonPanel = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            Height = 40,
+            FlowDirection = FlowDirection.LeftToRight,
+            Padding = new Padding(6, 6, 6, 6)
+        };
+
+        _saveButton = new Button { Text = "Save && Apply", AutoSize = true };
+        _reloadButton = new Button { Text = "Reload", AutoSize = true };
+        _saveButton.Click += (_, _) => SaveAndApplySettings();
+        _reloadButton.Click += (_, _) => ReloadSettings();
+        buttonPanel.Controls.Add(_saveButton);
+        buttonPanel.Controls.Add(_reloadButton);
+
+        _propertyGrid = new PropertyGrid
+        {
+            Dock = DockStyle.Fill,
+            SelectedObject = _settings
+        };
+
+        settingsPanel.Controls.Add(_propertyGrid);
+        settingsPanel.Controls.Add(buttonPanel);
+        settingsPanel.Controls.Add(_settingsPathLabel);
+
+        Controls.Add(_pictureBox);
+        Controls.Add(settingsPanel);
 
         _capture = new WindowCapture();
 
-        var motionSettings = new MotionSettings(
-            Roi: new Roi01(0.0f, 0.46f, 1.0f, 0.44f),
-            Step: 6,
-            DiffThreshold: 60,
-            TriggerThreshold: 90,
-            SplitX01: 0.5f
-        );
-
-        var elixirSettings = new ElixirSettings(
-            Roi: new Roi01(0.20f, 0.86f, 0.60f, 0.08f),
-            SampleStep: 6,
-            PurpleRMin: 120,
-            PurpleGMax: 90,
-            PurpleBMin: 120,
-            PurpleRBMaxDiff: 60,
-            SmoothingWindow: 5
-        );
-
-        var suggestionSettings = new SuggestionSettings(
-            NeedElixir: 3,
-            RequiredStreak: 2,
-            Cooldown: TimeSpan.FromMilliseconds(700)
-        );
-
-        _motionAnalyzer = new MotionAnalyzer(motionSettings);
-        _elixirEstimator = new ElixirEstimator(elixirSettings);
-        _suggestionEngine = new SuggestionEngine(suggestionSettings);
+        ApplySettings(_settings);
 
         _timer = new System.Windows.Forms.Timer
         {
@@ -178,5 +204,32 @@ public partial class Form1 : Form
             float y = (boxHeight - height) / 2f;
             return new RectangleF(0f, y, width, height);
         }
+    }
+
+    private void ApplySettings(AppSettings settings)
+    {
+        _motionAnalyzer = new MotionAnalyzer(settings.Motion.ToCore());
+        _elixirEstimator = new ElixirEstimator(settings.Elixir.ToCore());
+        _suggestionEngine = new SuggestionEngine(settings.Suggestion.ToCore());
+        _lastSuggestion = Suggestion.None;
+        _lastElixir = new ElixirResult(0f, 0);
+    }
+
+    private void SaveAndApplySettings()
+    {
+        if (_propertyGrid.SelectedObject is AppSettings settings)
+        {
+            _settings = settings;
+        }
+
+        AppSettingsStorage.Save(_settingsPath, _settings);
+        ApplySettings(_settings);
+    }
+
+    private void ReloadSettings()
+    {
+        _settings = AppSettingsStorage.LoadOrCreate(_settingsPath);
+        _propertyGrid.SelectedObject = _settings;
+        ApplySettings(_settings);
     }
 }

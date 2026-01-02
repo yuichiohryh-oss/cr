@@ -51,7 +51,8 @@ public sealed class ElixirEstimator : IElixirEstimator
             }
 
             float filled = samples == 0 ? 0f : (float)hits / samples;
-            float smoothed = ApplySmoothing(filled);
+            float normalized = NormalizeFilled(filled);
+            float smoothed = ApplySmoothing(normalized);
 
             int elixir = (int)MathF.Round(smoothed * 10f, MidpointRounding.AwayFromZero);
             elixir = Math.Clamp(elixir, 0, 10);
@@ -94,5 +95,18 @@ public sealed class ElixirEstimator : IElixirEstimator
         }
 
         return _historySum / _history.Count;
+    }
+
+    private float NormalizeFilled(float filled)
+    {
+        float empty = _settings.EmptyBaseline01;
+        float full = _settings.FullBaseline01;
+        if (full <= empty + 0.001f)
+        {
+            return Math.Clamp(filled, 0f, 1f);
+        }
+
+        float normalized = (filled - empty) / (full - empty);
+        return Math.Clamp(normalized, 0f, 1f);
     }
 }
