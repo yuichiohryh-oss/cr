@@ -10,6 +10,12 @@ namespace WinFormsApp1;
 
 public partial class Form1 : Form
 {
+    private enum ActiveRoi
+    {
+        Motion,
+        Elixir
+    }
+
     private readonly PictureBox _pictureBox;
     private readonly System.Windows.Forms.Timer _timer;
     private readonly WindowCapture _capture;
@@ -20,12 +26,18 @@ public partial class Form1 : Form
     private readonly Button _saveButton;
     private readonly Button _reloadButton;
     private readonly Label _settingsPathLabel;
+    private readonly RadioButton _motionRoiRadio;
+    private readonly RadioButton _elixirRoiRadio;
 
     private Bitmap? _prevFrame;
     private Suggestion _lastSuggestion;
     private ElixirResult _lastElixir;
     private AppSettings _settings;
     private readonly string _settingsPath;
+    private ActiveRoi _activeRoi;
+    private bool _dragging;
+    private PointF _dragStart;
+    private RectangleF _dragRect;
 
     public Form1()
     {
@@ -44,6 +56,9 @@ public partial class Form1 : Form
             BackColor = Color.Black
         };
         _pictureBox.Paint += PictureBox_Paint;
+        _pictureBox.MouseDown += PictureBox_MouseDown;
+        _pictureBox.MouseMove += PictureBox_MouseMove;
+        _pictureBox.MouseUp += PictureBox_MouseUp;
 
         var settingsPanel = new Panel
         {
@@ -75,6 +90,31 @@ public partial class Form1 : Form
         buttonPanel.Controls.Add(_saveButton);
         buttonPanel.Controls.Add(_reloadButton);
 
+        var roiGroup = new GroupBox
+        {
+            Dock = DockStyle.Top,
+            Height = 70,
+            Text = "Drag ROI"
+        };
+
+        _motionRoiRadio = new RadioButton
+        {
+            Text = "Motion ROI",
+            Location = new Point(10, 20),
+            AutoSize = true
+        };
+        _elixirRoiRadio = new RadioButton
+        {
+            Text = "Elixir ROI",
+            Location = new Point(120, 20),
+            AutoSize = true
+        };
+        _motionRoiRadio.CheckedChanged += (_, _) => { if (_motionRoiRadio.Checked) _activeRoi = ActiveRoi.Motion; };
+        _elixirRoiRadio.CheckedChanged += (_, _) => { if (_elixirRoiRadio.Checked) _activeRoi = ActiveRoi.Elixir; };
+
+        roiGroup.Controls.Add(_motionRoiRadio);
+        roiGroup.Controls.Add(_elixirRoiRadio);
+
         _propertyGrid = new PropertyGrid
         {
             Dock = DockStyle.Fill,
@@ -82,6 +122,7 @@ public partial class Form1 : Form
         };
 
         settingsPanel.Controls.Add(_propertyGrid);
+        settingsPanel.Controls.Add(roiGroup);
         settingsPanel.Controls.Add(buttonPanel);
         settingsPanel.Controls.Add(_settingsPathLabel);
 
@@ -90,6 +131,8 @@ public partial class Form1 : Form
 
         _capture = new WindowCapture();
 
+        _activeRoi = ActiveRoi.Elixir;
+        _elixirRoiRadio.Checked = true;
         ApplySettings(_settings);
 
         _timer = new System.Windows.Forms.Timer
@@ -153,8 +196,19 @@ public partial class Form1 : Form
         using var dotBrush = new SolidBrush(Color.Red);
         using var textBrush = new SolidBrush(Color.Yellow);
         using var debugBrush = new SolidBrush(Color.Lime);
+        using var motionPen = new Pen(Color.Cyan, 2f);
+        using var elixirPen = new Pen(Color.Orange, 2f);
+        using var dragPen = new Pen(Color.White, 2f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
         using var font = new Font("Segoe UI", 12f, FontStyle.Bold);
         using var debugFont = new Font("Segoe UI", 10f, FontStyle.Regular);
+
+        DrawRoi(e.Graphics, displayRect, _settings.Motion.Roi, motionPen);
+        DrawRoi(e.Graphics, displayRect, _settings.Elixir.Roi, elixirPen);
+
+        if (_dragging && _dragRect.Width > 1f && _dragRect.Height > 1f)
+        {
+            e.Graphics.DrawRectangle(dragPen, _dragRect.X, _dragRect.Y, _dragRect.Width, _dragRect.Height);
+        }
 
         if (_lastSuggestion.HasSuggestion)
         {
@@ -204,6 +258,80 @@ public partial class Form1 : Form
             float y = (boxHeight - height) / 2f;
             return new RectangleF(0f, y, width, height);
         }
+    }
+
+    private void PictureBox_MouseDown(object? sender, MouseEventArgs e)
+    {
+        RectangleF displayRect = GetImageDisplayRect(_pictureBox);
+        if (displayRect.Contains(e.Location))
+        {
+            _dragging = true;
+            _dragStart = e.Location;
+            _dragRect = new RectangleF(e.Location.X, e.Location.Y, 0f, 0f);
+        }
+    }
+
+    private void PictureBox_MouseMove(object? sender, MouseEventArgs e)
+    {
+        if (!_dragging)
+        {
+            return;
+        }
+
+        RectangleF displayRect = GetImageDisplayRect(_pictureBox);
+        float x0 = Math.Clamp(Math.Min(_dragStart.X, e.Location.X), displayRect.Left, displayRect.Right);
+        float y0 = Math.Clamp(Math.Min(_dragStart.Y, e.Location.Y), displayRect.Top, displayRect.Bottom);
+        float x1 = Math.Clamp(Math.Max(_dragStart.X, e.Location.X), displayRect.Left, displayRect.Right);
+        float y1 = Math.Clamp(Math.Max(_dragStart.Y, e.Location.Y), displayRect.Top, displayRect.Bottom);
+
+        _dragRect = new RectangleF(x0, y0, x1 - x0, y1 - y0);
+        _pictureBox.Invalidate();
+    }
+
+    private void PictureBox_MouseUp(object? sender, MouseEventArgs e)
+    {
+        if (!_dragging)
+        {
+            return;
+        }
+
+        _dragging = false;
+        RectangleF displayRect = GetImageDisplayRect(_pictureBox);
+        if (_dragRect.Width < 4f || _dragRect.Height < 4f || displayRect.Width <= 0f || displayRect.Height <= 0f)
+        {
+            _pictureBox.Invalidate();
+            return;
+        }
+
+        RoiSettings roi = new RoiSettings
+        {
+            X = (_dragRect.Left - displayRect.Left) / displayRect.Width,
+            Y = (_dragRect.Top - displayRect.Top) / displayRect.Height,
+            Width = _dragRect.Width / displayRect.Width,
+            Height = _dragRect.Height / displayRect.Height
+        };
+
+        if (_activeRoi == ActiveRoi.Motion)
+        {
+            _settings.Motion.Roi = roi;
+        }
+        else
+        {
+            _settings.Elixir.Roi = roi;
+        }
+
+        _propertyGrid.Refresh();
+        ApplySettings(_settings);
+        _pictureBox.Invalidate();
+    }
+
+    private static void DrawRoi(Graphics g, RectangleF displayRect, RoiSettings roi, Pen pen)
+    {
+        float x = displayRect.Left + (roi.X * displayRect.Width);
+        float y = displayRect.Top + (roi.Y * displayRect.Height);
+        float w = roi.Width * displayRect.Width;
+        float h = roi.Height * displayRect.Height;
+        g.DrawRectangle(pen, x, y, w, h);
     }
 
     private void ApplySettings(AppSettings settings)
