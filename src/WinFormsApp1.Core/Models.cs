@@ -60,6 +60,14 @@ public readonly record struct SuggestionSettings(
     TimeSpan Cooldown
 );
 
+public readonly record struct CardRecognitionSettings(
+    Roi01 HandRoi,
+    int SlotCount,
+    float SlotInnerPadding01,
+    int SampleSize,
+    float MinScore
+);
+
 public static class SuggestionPoints
 {
     public static readonly Point01 LeftDef = new(0.26f, 0.74f);
