@@ -15,7 +15,7 @@ public interface IElixirEstimator
 
 public interface ISuggestionEngine
 {
-    Suggestion Decide(MotionResult motion, ElixirResult elixir, HandState hand, DateTime now);
+    Suggestion Decide(MotionResult motion, ElixirResult elixir, HandState hand, EnemyState enemy, DateTime now);
 }
 
 public interface ICardRecognizer

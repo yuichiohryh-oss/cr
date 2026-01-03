@@ -13,6 +13,7 @@ public sealed class AppSettings
     public SuggestionSettingsDto Suggestion { get; set; } = new();
     public CardSettingsDto Cards { get; set; } = new();
     public CardSelectionSettings CardSelection { get; set; } = CardSelectionSettings.Default;
+    public DebugSettingsDto Debug { get; set; } = new();
 
     public static AppSettings CreateDefault()
     {
@@ -53,7 +54,11 @@ public sealed class AppSettings
                 SampleSize = 24,
                 MinScore = 0.70f
             },
-            CardSelection = CardSelectionSettings.Default
+            CardSelection = CardSelectionSettings.Default,
+            Debug = new DebugSettingsDto
+            {
+                ShowHpBars = false
+            }
         };
     }
 }
@@ -143,6 +148,14 @@ public sealed class CardSettingsDto
     }
 
     public override string ToString() => "Cards";
+}
+
+[TypeConverter(typeof(ExpandableObjectConverter))]
+public sealed class DebugSettingsDto
+{
+    public bool ShowHpBars { get; set; }
+
+    public override string ToString() => "Debug";
 }
 
 [TypeConverter(typeof(ExpandableObjectConverter))]

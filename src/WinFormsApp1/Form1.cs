@@ -21,6 +21,7 @@ public partial class Form1 : Form
     private readonly PictureBox _pictureBox;
     private readonly System.Windows.Forms.Timer _timer;
     private readonly WindowCapture _capture;
+    private readonly HpBarDetector _hpBarDetector;
     private IMotionAnalyzer _motionAnalyzer;
     private IElixirEstimator _elixirEstimator;
     private ISuggestionEngine _suggestionEngine;
@@ -38,6 +39,7 @@ public partial class Form1 : Form
     private Suggestion _lastSuggestion;
     private ElixirResult _lastElixir;
     private HandState _lastHand;
+    private HpBarDetectionResult _lastHpBars;
     private AppSettings _settings;
     private readonly string _settingsPath;
     private ActiveRoi _activeRoi;
@@ -154,6 +156,8 @@ public partial class Form1 : Form
         Controls.Add(settingsPanel);
 
         _capture = new WindowCapture();
+        _hpBarDetector = new HpBarDetector();
+        _lastHpBars = HpBarDetectionResult.Empty;
 
         _activeRoi = ActiveRoi.Hand;
         _handRoiRadio.Checked = true;
@@ -189,11 +193,15 @@ public partial class Form1 : Form
 
         ElixirResult elixir = _elixirEstimator.Estimate(frame);
         HandState hand = _cardRecognizer != null ? _cardRecognizer.Recognize(frame) : HandState.Empty;
-        Suggestion suggestion = _suggestionEngine.Decide(motion, elixir, hand, DateTime.Now);
+        HpBarDetectionResult hpBars = _settings.Debug.ShowHpBars
+            ? _hpBarDetector.Detect(frame)
+            : HpBarDetectionResult.Empty;
+        Suggestion suggestion = _suggestionEngine.Decide(motion, elixir, hand, hpBars.Enemy, DateTime.Now);
 
         _lastSuggestion = suggestion;
         _lastElixir = elixir;
         _lastHand = hand;
+        _lastHpBars = hpBars;
 
         Image? oldImage = _pictureBox.Image;
         _pictureBox.Image = frame;
@@ -233,6 +241,10 @@ public partial class Form1 : Form
         DrawRoi(e.Graphics, displayRect, _settings.Elixir.Roi, elixirPen);
         DrawRoi(e.Graphics, displayRect, _settings.Cards.HandRoi, handPen);
         DrawHandSlots(e.Graphics, displayRect, _settings.Cards.HandRoi, _settings.Cards.SlotCount, _lastSuggestion.SelectedHandIndex);
+        if (_settings.Debug.ShowHpBars)
+        {
+            DrawHpBars(e.Graphics, displayRect, _lastHpBars);
+        }
 
         if (_dragging && _dragRect.Width > 1f && _dragRect.Height > 1f)
         {
@@ -399,6 +411,28 @@ public partial class Form1 : Form
         }
     }
 
+    private static void DrawHpBars(Graphics g, RectangleF displayRect, HpBarDetectionResult bars)
+    {
+        const float barWidth = 14f;
+        const float barHeight = 4f;
+        using var enemyPen = new Pen(Color.Red, 2f);
+        using var friendlyPen = new Pen(Color.Lime, 2f);
+
+        foreach (var unit in bars.Enemy.Units)
+        {
+            float x = displayRect.Left + (unit.X01 * displayRect.Width);
+            float y = displayRect.Top + (unit.Y01 * displayRect.Height);
+            g.DrawRectangle(enemyPen, x - (barWidth / 2f), y - (barHeight / 2f), barWidth, barHeight);
+        }
+
+        foreach (var unit in bars.Friendly.Units)
+        {
+            float x = displayRect.Left + (unit.X01 * displayRect.Width);
+            float y = displayRect.Top + (unit.Y01 * displayRect.Height);
+            g.DrawRectangle(friendlyPen, x - (barWidth / 2f), y - (barHeight / 2f), barWidth, barHeight);
+        }
+    }
+
     private void ApplySettings(AppSettings settings)
     {
         _motionAnalyzer = new MotionAnalyzer(settings.Motion.ToCore());
@@ -408,6 +442,7 @@ public partial class Form1 : Form
         _lastSuggestion = Suggestion.None;
         _lastElixir = new ElixirResult(0f, 0);
         _lastHand = HandState.Empty;
+        _lastHpBars = HpBarDetectionResult.Empty;
     }
 
     private void SaveAndApplySettings()
