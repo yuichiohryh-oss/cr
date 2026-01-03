@@ -68,7 +68,8 @@ public sealed class AppSettings
             Training = new TrainingSettingsDto
             {
                 Enabled = false,
-                OutputPath = "dataset/output.jsonl",
+                OutputDir = "dataset",
+                FileNamePattern = "match_{yyyyMMdd_HHmmss}_{matchId}.jsonl",
                 RecentSpawnSeconds = 4,
                 PendingTimeoutMs = 1500,
                 ElixirCommitTolerance = 1,
@@ -99,7 +100,8 @@ public sealed class AppSettings
                 ShowLevelLabels = true,
                 LevelLabelRoi = new LevelLabelRoiSettings { X = 0.05f, Y = 0.08f, W = 0.90f, H = 0.75f },
                 ShowClockPhase = true,
-                ShowSpellMarkers = true
+                ShowSpellMarkers = true,
+                ShowStopwatch = true
             }
         };
     }
@@ -217,7 +219,8 @@ public sealed class CardSettingsDto
 public sealed class TrainingSettingsDto
 {
     public bool Enabled { get; set; }
-    public string OutputPath { get; set; } = string.Empty;
+    public string OutputDir { get; set; } = string.Empty;
+    public string FileNamePattern { get; set; } = string.Empty;
     public int RecentSpawnSeconds { get; set; }
     public int PendingTimeoutMs { get; set; }
     public int ElixirCommitTolerance { get; set; }
@@ -227,7 +230,8 @@ public sealed class TrainingSettingsDto
     {
         return new TrainingSettings(
             Enabled,
-            OutputPath,
+            OutputDir,
+            FileNamePattern,
             RecentSpawnSeconds,
             PendingTimeoutMs,
             ElixirCommitTolerance,
@@ -291,6 +295,7 @@ public sealed class DebugSettingsDto
     public LevelLabelRoiSettings LevelLabelRoi { get; set; } = new();
     public bool ShowClockPhase { get; set; }
     public bool ShowSpellMarkers { get; set; }
+    public bool ShowStopwatch { get; set; }
 
     public override string ToString() => "Debug";
 }
