@@ -11,6 +11,10 @@ public sealed class FireballPlacementDetector
     public unsafe bool TryDetect(Bitmap frame, SpellDetectionSettings settings, out SpellDetectionResult result)
     {
         result = default;
+        if (!settings.Enabled)
+        {
+            return false;
+        }
 
         var fullRect = new Rectangle(0, 0, frame.Width, frame.Height);
         Rectangle roiRect = ToPixelRect(settings.Roi, frame.Width, frame.Height);
