@@ -14,6 +14,16 @@ public sealed class WindowCapture
             return null;
         }
 
+        return CaptureClient(hWnd);
+    }
+
+    public Bitmap? CaptureClient(IntPtr hWnd)
+    {
+        if (hWnd == IntPtr.Zero)
+        {
+            return null;
+        }
+
         if (!Win32.GetClientRect(hWnd, out var rect))
         {
             return null;

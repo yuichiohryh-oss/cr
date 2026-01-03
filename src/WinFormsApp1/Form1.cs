@@ -21,6 +21,7 @@ public partial class Form1 : Form
     private readonly PictureBox _pictureBox;
     private readonly System.Windows.Forms.Timer _timer;
     private readonly WindowCapture _capture;
+    private readonly WindowEnumerator _windowEnumerator;
     private readonly HpBarDetector _hpBarDetector;
     private readonly LevelLabelDetector _levelLabelDetector;
     private readonly SpawnEventDetector _spawnEventDetector;
@@ -39,9 +40,13 @@ public partial class Form1 : Form
     private readonly Button _reloadButton;
     private readonly Label _settingsPathLabel;
     private readonly Label _cardsStatusLabel;
+    private readonly Label _selectedWindowLabel;
     private readonly RadioButton _motionRoiRadio;
     private readonly RadioButton _elixirRoiRadio;
     private readonly RadioButton _handRoiRadio;
+    private readonly ComboBox _windowComboBox;
+    private readonly Button _refreshWindowsButton;
+    private readonly Button _selectWindowButton;
 
     private Bitmap? _prevFrame;
     private Suggestion _lastSuggestion;
@@ -54,6 +59,7 @@ public partial class Form1 : Form
     private SpellDetectionSettings _spellSettings;
     private PointF? _lastLogPoint;
     private PointF? _lastFireballPoint;
+    private WindowInfo? _selectedWindow;
     private AppSettings _settings;
     private readonly string _settingsPath;
     private ActiveRoi _activeRoi;
@@ -105,6 +111,47 @@ public partial class Form1 : Form
             TextAlign = ContentAlignment.MiddleLeft,
             Padding = new Padding(8, 0, 0, 0)
         };
+
+        _selectedWindowLabel = new Label
+        {
+            Dock = DockStyle.Top,
+            Height = 36,
+            Text = "Selected: (auto)",
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(8, 0, 0, 0)
+        };
+
+        var windowGroup = new GroupBox
+        {
+            Dock = DockStyle.Top,
+            Height = 140,
+            Text = "Capture Window"
+        };
+
+        _windowComboBox = new ComboBox
+        {
+            Dock = DockStyle.Top,
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            Height = 28
+        };
+        _windowComboBox.DoubleClick += (_, _) => SelectWindowFromList();
+
+        var windowButtons = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            Height = 34,
+            FlowDirection = FlowDirection.LeftToRight,
+            Padding = new Padding(6, 4, 6, 4)
+        };
+        _refreshWindowsButton = new Button { Text = "Refresh", AutoSize = true };
+        _selectWindowButton = new Button { Text = "Select", AutoSize = true };
+        _refreshWindowsButton.Click += (_, _) => RefreshWindowList();
+        _selectWindowButton.Click += (_, _) => SelectWindowFromList();
+        windowButtons.Controls.Add(_refreshWindowsButton);
+        windowButtons.Controls.Add(_selectWindowButton);
+
+        windowGroup.Controls.Add(windowButtons);
+        windowGroup.Controls.Add(_windowComboBox);
 
         var buttonPanel = new FlowLayoutPanel
         {
@@ -162,7 +209,9 @@ public partial class Form1 : Form
 
         settingsPanel.Controls.Add(_propertyGrid);
         settingsPanel.Controls.Add(roiGroup);
+        settingsPanel.Controls.Add(windowGroup);
         settingsPanel.Controls.Add(buttonPanel);
+        settingsPanel.Controls.Add(_selectedWindowLabel);
         settingsPanel.Controls.Add(_cardsStatusLabel);
         settingsPanel.Controls.Add(_settingsPathLabel);
 
@@ -170,6 +219,7 @@ public partial class Form1 : Form
         Controls.Add(settingsPanel);
 
         _capture = new WindowCapture();
+        _windowEnumerator = new WindowEnumerator();
         _hpBarDetector = new HpBarDetector();
         _levelLabelDetector = new LevelLabelDetector();
         _spawnEventDetector = new SpawnEventDetector();
@@ -192,6 +242,7 @@ public partial class Form1 : Form
         _activeRoi = ActiveRoi.Hand;
         _handRoiRadio.Checked = true;
         ApplySettings(_settings);
+        RefreshWindowList();
 
         _timer = new System.Windows.Forms.Timer
         {
@@ -211,7 +262,15 @@ public partial class Form1 : Form
 
     private void Timer_Tick(object? sender, EventArgs e)
     {
-        Bitmap? frame = _capture.CaptureClient("ClashRoyale");
+        Bitmap? frame;
+        if (_selectedWindow != null)
+        {
+            frame = _capture.CaptureClient(_selectedWindow.Hwnd);
+        }
+        else
+        {
+            frame = _capture.CaptureClient("ClashRoyale");
+        }
         if (frame == null)
         {
             return;
@@ -580,6 +639,38 @@ public partial class Form1 : Form
 
         AppSettingsStorage.Save(_settingsPath, _settings);
         ApplySettings(_settings);
+    }
+
+    private void RefreshWindowList()
+    {
+        var windows = _windowEnumerator.GetOpenWindows();
+        _windowComboBox.BeginUpdate();
+        try
+        {
+            _windowComboBox.Items.Clear();
+            foreach (WindowInfo window in windows)
+            {
+                _windowComboBox.Items.Add(window);
+            }
+        }
+        finally
+        {
+            _windowComboBox.EndUpdate();
+        }
+
+        if (_windowComboBox.Items.Count > 0)
+        {
+            _windowComboBox.SelectedIndex = 0;
+        }
+    }
+
+    private void SelectWindowFromList()
+    {
+        if (_windowComboBox.SelectedItem is WindowInfo window)
+        {
+            _selectedWindow = window;
+            _selectedWindowLabel.Text = $"Selected: {window.Title} ({window.ProcessName})";
+        }
     }
 
     private void ReloadSettings()
