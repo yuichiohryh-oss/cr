@@ -326,7 +326,13 @@ public sealed class DatasetRecorder
 
     public void Close()
     {
-        _writer?.Dispose();
+        if (_writer == null)
+        {
+            return;
+        }
+
+        _writer.Flush();
+        _writer.Dispose();
         _writer = null;
         CurrentPath = null;
     }
