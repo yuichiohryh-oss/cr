@@ -15,6 +15,7 @@ public sealed class AppSettings
     public CardSettingsDto Cards { get; set; } = new();
     public CardSelectionSettings CardSelection { get; set; } = CardSelectionSettings.Default;
     public TrainingSettingsDto Training { get; set; } = new();
+    public SpellSettingsDto Spells { get; set; } = new();
     public DebugSettingsDto Debug { get; set; } = new();
 
     public static AppSettings CreateDefault()
@@ -72,13 +73,24 @@ public sealed class AppSettings
                 PendingTimeoutMs = 1500,
                 ElixirCommitTolerance = 1
             },
+            Spells = new SpellSettingsDto
+            {
+                Enabled = true,
+                Roi = new RoiSettings { X = 0.05f, Y = 0.08f, Width = 0.90f, Height = 0.75f },
+                DiffThreshold = 25,
+                MinArea = 40,
+                MaxArea = 3000,
+                MinAspect = 4.0f,
+                SearchFrames = 4
+            },
             Debug = new DebugSettingsDto
             {
                 ShowHpBars = false,
                 HpBarRoi = new RoiSettings { X = 0.05f, Y = 0.06f, Width = 0.90f, Height = 0.74f },
                 ShowLevelLabels = true,
                 LevelLabelRoi = new LevelLabelRoiSettings { X = 0.05f, Y = 0.08f, W = 0.90f, H = 0.75f },
-                ShowClockPhase = true
+                ShowClockPhase = true,
+                ShowSpellMarkers = true
             }
         };
     }
@@ -210,6 +222,25 @@ public sealed class TrainingSettingsDto
 }
 
 [TypeConverter(typeof(ExpandableObjectConverter))]
+public sealed class SpellSettingsDto
+{
+    public bool Enabled { get; set; }
+    public RoiSettings Roi { get; set; } = new();
+    public int DiffThreshold { get; set; }
+    public int MinArea { get; set; }
+    public int MaxArea { get; set; }
+    public float MinAspect { get; set; }
+    public int SearchFrames { get; set; }
+
+    public SpellDetectionSettings ToCore()
+    {
+        return new SpellDetectionSettings(Enabled, Roi.ToCore(), DiffThreshold, MinArea, MaxArea, MinAspect, SearchFrames);
+    }
+
+    public override string ToString() => "Spells";
+}
+
+[TypeConverter(typeof(ExpandableObjectConverter))]
 public sealed class DebugSettingsDto
 {
     public bool ShowHpBars { get; set; }
@@ -217,6 +248,7 @@ public sealed class DebugSettingsDto
     public bool ShowLevelLabels { get; set; }
     public LevelLabelRoiSettings LevelLabelRoi { get; set; } = new();
     public bool ShowClockPhase { get; set; }
+    public bool ShowSpellMarkers { get; set; }
 
     public override string ToString() => "Debug";
 }
