@@ -25,7 +25,6 @@ public partial class Form1 : Form
     private IElixirEstimator _elixirEstimator;
     private ISuggestionEngine _suggestionEngine;
     private ICardRecognizer? _cardRecognizer;
-    private CardSelector _cardSelector = new();
     private readonly PropertyGrid _propertyGrid;
     private readonly Button _saveButton;
     private readonly Button _reloadButton;
@@ -189,16 +188,12 @@ public partial class Form1 : Form
             : new MotionResult(0, 0, false);
 
         ElixirResult elixir = _elixirEstimator.Estimate(frame);
-        Suggestion suggestion = _suggestionEngine.Decide(motion, elixir, DateTime.Now);
+        HandState hand = _cardRecognizer != null ? _cardRecognizer.Recognize(frame) : HandState.Empty;
+        Suggestion suggestion = _suggestionEngine.Decide(motion, elixir, hand, DateTime.Now);
 
         _lastSuggestion = suggestion;
         _lastElixir = elixir;
-        _lastHand = _cardRecognizer != null ? _cardRecognizer.Recognize(frame) : HandState.Empty;
-        string selectedCard = _cardSelector.SelectDefenseCard(_lastHand);
-        if (_lastSuggestion.HasSuggestion && !string.IsNullOrWhiteSpace(selectedCard))
-        {
-            _lastSuggestion = new Suggestion(true, _lastSuggestion.X01, _lastSuggestion.Y01, $"{_lastSuggestion.Text}: {selectedCard}");
-        }
+        _lastHand = hand;
 
         Image? oldImage = _pictureBox.Image;
         _pictureBox.Image = frame;
@@ -237,6 +232,7 @@ public partial class Form1 : Form
         DrawRoi(e.Graphics, displayRect, _settings.Motion.Roi, motionPen);
         DrawRoi(e.Graphics, displayRect, _settings.Elixir.Roi, elixirPen);
         DrawRoi(e.Graphics, displayRect, _settings.Cards.HandRoi, handPen);
+        DrawHandSlots(e.Graphics, displayRect, _settings.Cards.HandRoi, _settings.Cards.SlotCount, _lastSuggestion.SelectedHandIndex);
 
         if (_dragging && _dragRect.Width > 1f && _dragRect.Height > 1f)
         {
@@ -374,12 +370,40 @@ public partial class Form1 : Form
         g.DrawRectangle(pen, x, y, w, h);
     }
 
+    private static void DrawHandSlots(Graphics g, RectangleF displayRect, RoiSettings roi, int slotCount, int? selectedIndex)
+    {
+        if (slotCount <= 0)
+        {
+            return;
+        }
+
+        float handX = displayRect.Left + (roi.X * displayRect.Width);
+        float handY = displayRect.Top + (roi.Y * displayRect.Height);
+        float handW = roi.Width * displayRect.Width;
+        float handH = roi.Height * displayRect.Height;
+
+        float slotW = handW / slotCount;
+        using var slotPen = new Pen(Color.FromArgb(160, Color.White), 1f);
+        using var selectedPen = new Pen(Color.Yellow, 2f);
+
+        for (int i = 0; i < slotCount; i++)
+        {
+            float x = handX + (i * slotW);
+            var rect = new RectangleF(x, handY, slotW, handH);
+            g.DrawRectangle(slotPen, rect.X, rect.Y, rect.Width, rect.Height);
+
+            if (selectedIndex.HasValue && selectedIndex.Value == i)
+            {
+                g.DrawRectangle(selectedPen, rect.X + 1f, rect.Y + 1f, rect.Width - 2f, rect.Height - 2f);
+            }
+        }
+    }
+
     private void ApplySettings(AppSettings settings)
     {
         _motionAnalyzer = new MotionAnalyzer(settings.Motion.ToCore());
         _elixirEstimator = new ElixirEstimator(settings.Elixir.ToCore());
-        _suggestionEngine = new SuggestionEngine(settings.Suggestion.ToCore());
-        _cardSelector = new CardSelector();
+        _suggestionEngine = new SuggestionEngine(settings.Suggestion.ToCore(), new CardSelector());
         _cardRecognizer = TryCreateCardRecognizer(settings.Cards);
         _lastSuggestion = Suggestion.None;
         _lastElixir = new ElixirResult(0f, 0);

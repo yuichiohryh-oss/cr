@@ -81,7 +81,7 @@ public sealed class CardRecognizer : ICardRecognizer
             frame.UnlockBits(data);
         }
 
-        return new HandState(slots);
+        return HandState.FromSlots(slots);
     }
 
     private static unsafe void SampleSlot(BitmapData data, Rectangle slot, int sampleSize, byte[] buffer)

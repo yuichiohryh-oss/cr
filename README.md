@@ -52,7 +52,9 @@ dotnet run --project src/WinFormsApp1
 - フレーム差分の動体検出
 - 自陣側で動きが増えたら防衛提案 (dot + text)
 - エリクサーバーの色判定による推定と表示
-- ROIをドラッグで調整 (Motion/Elixir)
+- ROIをドラッグで調整 (Motion/Elixir/Hand)
+- 手札4枚のテンプレ認識
+- 手札からカード提案
 
 ## Suggestion Logic
 
@@ -75,6 +77,6 @@ dotnet run --project src/WinFormsApp1
 ## Roadmap
 
 - [x] Phase 1: Capture + Draw MVP
-- [x] Phase 2: Motion + Elixir estimation
+- [x] Phase 2: Motion + Elixir + Hand->Card suggestion
 - [x] Phase 3: Suggestion logic + tests
 - [ ] Phase 4: Accuracy tuning + fixtures + parameter UI

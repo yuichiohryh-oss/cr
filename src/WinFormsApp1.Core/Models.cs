@@ -7,9 +7,16 @@ public readonly record struct MotionResult(long ThreatLeft, long ThreatRight, bo
 
 public readonly record struct ElixirResult(float Filled01, int ElixirInt);
 
-public readonly record struct Suggestion(bool HasSuggestion, float X01, float Y01, string Text)
+public readonly record struct Suggestion(
+    bool HasSuggestion,
+    float X01,
+    float Y01,
+    string Text,
+    int? SelectedHandIndex,
+    string? SelectedCardId
+)
 {
-    public static Suggestion None => new(false, 0f, 0f, string.Empty);
+    public static Suggestion None => new(false, 0f, 0f, string.Empty, null, null);
 }
 
 public readonly record struct Point01(float X, float Y);
@@ -59,6 +66,43 @@ public readonly record struct SuggestionSettings(
     int RequiredStreak,
     TimeSpan Cooldown
 );
+
+public readonly record struct CardSelection(int HandIndex, string CardId);
+
+[Flags]
+public enum CardRole
+{
+    None = 0,
+    Spell = 1 << 0,
+    Building = 1 << 1,
+    Defensive = 1 << 2,
+    Cycle = 1 << 3,
+    WinCondition = 1 << 4
+}
+
+public readonly record struct CardInfo(string Id, int Cost, CardRole Roles);
+
+public readonly record struct CardSelectorSettings(
+    int StrongThreatThreshold,
+    bool ExcludeSpells,
+    bool ExcludeBuildings,
+    string[] DefensivePriority
+)
+{
+    public static CardSelectorSettings Default => new(
+        StrongThreatThreshold: 50,
+        ExcludeSpells: true,
+        ExcludeBuildings: true,
+        DefensivePriority: new[]
+        {
+            "musketeer",
+            "ice_golem",
+            "skeletons",
+            "ice_spirit",
+            "cannon"
+        }
+    );
+}
 
 public readonly record struct CardRecognitionSettings(
     Roi01 HandRoi,
