@@ -25,16 +25,22 @@ public readonly record struct TrainingSettings(
     string OutputPath,
     int RecentSpawnSeconds,
     int PendingTimeoutMs,
-    int ElixirCommitTolerance
+    int ElixirCommitTolerance,
+    int UnitCommitMatchWindowMs
 );
-
-public readonly record struct ActionCommit(ActionSnapshot Action, bool NeedsSpellPosition);
 
 public readonly record struct PendingAction(
     string CardId,
     int Cost,
     DateTime StartTime,
     int ElixirAtStart
+);
+
+public readonly record struct PendingPlacement(
+    ActionCommitEvent Commit,
+    IActionPlacementResolver Resolver,
+    ActionSnapshot BaseAction,
+    int FramesLeft
 );
 
 public sealed class StateBuilder
@@ -89,20 +95,21 @@ public sealed class StateBuilder
 
 public sealed class ActionDetector
 {
-    private readonly TimeSpan _spawnWindow;
     private readonly TimeSpan _pendingTimeout;
     private readonly int _elixirTolerance;
+    private readonly IReadOnlyList<IActionPlacementResolver> _resolvers;
     private HandState _previous = HandState.Empty;
     private PendingAction? _pending;
+    private PendingPlacement? _pendingPlacement;
 
-    public ActionDetector(int spawnWindowMs = 900, int pendingTimeoutMs = 1500, int elixirCommitTolerance = 1)
+    public ActionDetector(int pendingTimeoutMs, int elixirCommitTolerance, IReadOnlyList<IActionPlacementResolver> resolvers)
     {
-        _spawnWindow = TimeSpan.FromMilliseconds(spawnWindowMs);
         _pendingTimeout = TimeSpan.FromMilliseconds(pendingTimeoutMs);
         _elixirTolerance = Math.Max(0, elixirCommitTolerance);
+        _resolvers = resolvers;
     }
 
-    public ActionCommit? Update(HandState currentHand, ElixirResult elixir, IReadOnlyList<SpawnEvent> spawns, DateTime now)
+    public ActionSnapshot? Update(HandState currentHand, ElixirResult elixir, FrameContext context)
     {
         if (_previous.Slots.Length == 0)
         {
@@ -110,10 +117,20 @@ public sealed class ActionDetector
             return null;
         }
 
+        if (_pendingPlacement.HasValue)
+        {
+            ActionSnapshot? resolved = TryResolvePendingPlacement(context);
+            if (resolved.HasValue)
+            {
+                _previous = currentHand;
+                return resolved.Value;
+            }
+        }
+
         if (_pending.HasValue)
         {
             PendingAction pending = _pending.Value;
-            if (now - pending.StartTime > _pendingTimeout)
+            if (context.Now - pending.StartTime > _pendingTimeout)
             {
                 _pending = null;
             }
@@ -123,11 +140,11 @@ public sealed class ActionDetector
             }
             else if (IsElixirCommitted(pending, elixir.ElixirInt))
             {
-                ActionSnapshot action = BuildActionSnapshot(pending.CardId, spawns, now);
-                bool needsSpellPosition = IsLogCard(pending.CardId);
+                var commit = new ActionCommitEvent(pending.CardId, pending.Cost, context.Now);
                 _pending = null;
+                ActionSnapshot? resolved = ResolveCommit(commit, context);
                 _previous = currentHand;
-                return new ActionCommit(action, needsSpellPosition);
+                return resolved;
             }
         }
 
@@ -135,7 +152,7 @@ public sealed class ActionDetector
         {
             if (!string.IsNullOrWhiteSpace(removedCard))
             {
-                _pending = new PendingAction(removedCard, removedCost, now, elixir.ElixirInt);
+                _pending = new PendingAction(removedCard, removedCost, context.Now, elixir.ElixirInt);
             }
         }
 
@@ -143,30 +160,29 @@ public sealed class ActionDetector
         return null;
     }
 
-    private bool TryFindRecentFriendlySpawn(IReadOnlyList<SpawnEvent> spawns, DateTime now, out SpawnEvent result)
+    private ActionSnapshot? ResolveCommit(ActionCommitEvent commit, FrameContext context)
     {
-        for (int i = spawns.Count - 1; i >= 0; i--)
-        {
-            SpawnEvent spawn = spawns[i];
-            if (spawn.Team != Team.Friendly)
-            {
-                continue;
-            }
+        IActionPlacementResolver? resolver = FindResolver(commit);
+        var baseAction = new ActionSnapshot(commit.CardId, Lane.Unknown, null, null);
 
-            if (now - spawn.Time <= _spawnWindow)
-            {
-                result = spawn;
-                return true;
-            }
+        if (resolver == null)
+        {
+            return baseAction;
         }
 
-        result = default;
-        return false;
-    }
+        PlacementResult? placement = resolver.Resolve(commit, context);
+        if (placement.HasValue)
+        {
+            return ApplyPlacement(baseAction, placement.Value);
+        }
 
-    private static bool IsLogCard(string cardId)
-    {
-        return string.Equals(cardId, "log", StringComparison.OrdinalIgnoreCase);
+        if (resolver.SearchFrames > 0)
+        {
+            _pendingPlacement = new PendingPlacement(commit, resolver, baseAction, resolver.SearchFrames);
+            return null;
+        }
+
+        return baseAction;
     }
 
     private bool IsElixirCommitted(PendingAction pending, int elixirNow)
@@ -189,14 +205,18 @@ public sealed class ActionDetector
         return false;
     }
 
-    private ActionSnapshot BuildActionSnapshot(string cardId, IReadOnlyList<SpawnEvent> spawns, DateTime now)
+    private IActionPlacementResolver? FindResolver(ActionCommitEvent commit)
     {
-        if (!IsLogCard(cardId) && TryFindRecentFriendlySpawn(spawns, now, out SpawnEvent spawn))
+        for (int i = 0; i < _resolvers.Count; i++)
         {
-            return new ActionSnapshot(cardId, spawn.Lane, spawn.X01, spawn.Y01);
+            IActionPlacementResolver resolver = _resolvers[i];
+            if (resolver.CanResolve(commit))
+            {
+                return resolver;
+            }
         }
 
-        return new ActionSnapshot(cardId, Lane.Unknown, null, null);
+        return null;
     }
 
     private static bool TryFindRemovedCard(HandState previous, HandState current, out string? removedCard, out int removedCost)
@@ -227,6 +247,42 @@ public sealed class ActionDetector
         }
 
         return false;
+    }
+
+    private ActionSnapshot? TryResolvePendingPlacement(FrameContext context)
+    {
+        if (!_pendingPlacement.HasValue)
+        {
+            return null;
+        }
+
+        PendingPlacement pending = _pendingPlacement.Value;
+        PlacementResult? placement = pending.Resolver.Resolve(pending.Commit, context);
+        if (placement.HasValue)
+        {
+            _pendingPlacement = null;
+            return ApplyPlacement(pending.BaseAction, placement.Value);
+        }
+
+        int remaining = pending.FramesLeft - 1;
+        if (remaining <= 0)
+        {
+            _pendingPlacement = null;
+            return pending.BaseAction;
+        }
+
+        _pendingPlacement = pending with { FramesLeft = remaining };
+        return null;
+    }
+
+    private static ActionSnapshot ApplyPlacement(ActionSnapshot baseAction, PlacementResult placement)
+    {
+        return baseAction with
+        {
+            X01 = placement.X01,
+            Y01 = placement.Y01,
+            Lane = placement.Lane
+        };
     }
 }
 
