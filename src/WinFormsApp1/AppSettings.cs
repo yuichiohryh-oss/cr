@@ -68,7 +68,9 @@ public sealed class AppSettings
             {
                 Enabled = false,
                 OutputPath = "dataset/output.jsonl",
-                RecentSpawnSeconds = 4
+                RecentSpawnSeconds = 4,
+                PendingTimeoutMs = 1500,
+                ElixirCommitTolerance = 1
             },
             Debug = new DebugSettingsDto
             {
@@ -196,10 +198,12 @@ public sealed class TrainingSettingsDto
     public bool Enabled { get; set; }
     public string OutputPath { get; set; } = string.Empty;
     public int RecentSpawnSeconds { get; set; }
+    public int PendingTimeoutMs { get; set; }
+    public int ElixirCommitTolerance { get; set; }
 
     public TrainingSettings ToCore()
     {
-        return new TrainingSettings(Enabled, OutputPath, RecentSpawnSeconds);
+        return new TrainingSettings(Enabled, OutputPath, RecentSpawnSeconds, PendingTimeoutMs, ElixirCommitTolerance);
     }
 
     public override string ToString() => "Training";

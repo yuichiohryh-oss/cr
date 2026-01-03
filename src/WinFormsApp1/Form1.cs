@@ -171,7 +171,7 @@ public partial class Form1 : Form
         _lastHpBars = HpBarDetectionResult.Empty;
         _lastSpawns = Array.Empty<SpawnEvent>();
         _lastClock = MatchClockState.Unknown;
-        _trainingSettings = new TrainingSettings(false, string.Empty, 4);
+        _trainingSettings = new TrainingSettings(false, string.Empty, 4, 1500, 1);
 
         _activeRoi = ActiveRoi.Hand;
         _handRoiRadio.Checked = true;
@@ -219,17 +219,11 @@ public partial class Form1 : Form
         if (_trainingSettings.Enabled && _datasetRecorder != null)
         {
             StateSnapshot state = _stateBuilder.Build(clockState, elixir, spawns, hand, now);
-            ActionSnapshot? action = _actionDetector.Update(hand, spawns, now);
-            if (action.HasValue)
+            ActionCommit? commit = _actionDetector.Update(hand, elixir, spawns, now);
+            if (commit.HasValue)
             {
-                var sample = new TrainingSample(DateTime.UtcNow, state, action.Value);
-                try
-                {
-                    _datasetRecorder.Append(sample);
-                }
-                catch
-                {
-                }
+                TrainingSample sample = new TrainingSample(DateTime.UtcNow, state, commit.Value.Action);
+                AppendSampleSafe(sample);
             }
         }
 
@@ -504,7 +498,9 @@ public partial class Form1 : Form
         _cardRecognizer = TryCreateCardRecognizer(settings.Cards);
         _trainingSettings = settings.Training.ToCore();
         _stateBuilder = new StateBuilder(_trainingSettings.RecentSpawnSeconds);
-        _actionDetector = new ActionDetector();
+        _actionDetector = new ActionDetector(
+            pendingTimeoutMs: _trainingSettings.PendingTimeoutMs,
+            elixirCommitTolerance: _trainingSettings.ElixirCommitTolerance);
         _datasetRecorder = _trainingSettings.Enabled
             ? new DatasetRecorder(ResolveTrainingPath(_trainingSettings.OutputPath))
             : null;
@@ -625,4 +621,21 @@ public partial class Form1 : Form
 
         return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, outputPath));
     }
+
+    private void AppendSampleSafe(TrainingSample sample)
+    {
+        if (_datasetRecorder == null)
+        {
+            return;
+        }
+
+        try
+        {
+            _datasetRecorder.Append(sample);
+        }
+        catch
+        {
+        }
+    }
+
 }
