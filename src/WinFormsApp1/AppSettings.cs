@@ -12,6 +12,7 @@ public sealed class AppSettings
     public ElixirSettingsDto Elixir { get; set; } = new();
     public SuggestionSettingsDto Suggestion { get; set; } = new();
     public CardSettingsDto Cards { get; set; } = new();
+    public CardSelectionSettings CardSelection { get; set; } = CardSelectionSettings.Default;
 
     public static AppSettings CreateDefault()
     {
@@ -51,7 +52,8 @@ public sealed class AppSettings
                 SlotInnerPadding01 = 0.08f,
                 SampleSize = 24,
                 MinScore = 0.70f
-            }
+            },
+            CardSelection = CardSelectionSettings.Default
         };
     }
 }

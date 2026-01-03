@@ -403,7 +403,7 @@ public partial class Form1 : Form
     {
         _motionAnalyzer = new MotionAnalyzer(settings.Motion.ToCore());
         _elixirEstimator = new ElixirEstimator(settings.Elixir.ToCore());
-        _suggestionEngine = new SuggestionEngine(settings.Suggestion.ToCore(), new CardSelector());
+        _suggestionEngine = new SuggestionEngine(settings.Suggestion.ToCore(), new CardSelector(settings.CardSelection));
         _cardRecognizer = TryCreateCardRecognizer(settings.Cards);
         _lastSuggestion = Suggestion.None;
         _lastElixir = new ElixirResult(0f, 0);

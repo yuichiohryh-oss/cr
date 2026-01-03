@@ -82,28 +82,6 @@ public enum CardRole
 
 public readonly record struct CardInfo(string Id, int Cost, CardRole Roles);
 
-public readonly record struct CardSelectorSettings(
-    int StrongThreatThreshold,
-    bool ExcludeSpells,
-    bool ExcludeBuildings,
-    string[] DefensivePriority
-)
-{
-    public static CardSelectorSettings Default => new(
-        StrongThreatThreshold: 50,
-        ExcludeSpells: true,
-        ExcludeBuildings: true,
-        DefensivePriority: new[]
-        {
-            "musketeer",
-            "ice_golem",
-            "skeletons",
-            "ice_spirit",
-            "cannon"
-        }
-    );
-}
-
 public readonly record struct CardRecognitionSettings(
     Roi01 HandRoi,
     int SlotCount,

@@ -46,6 +46,27 @@ dotnet run --project src/WinFormsApp1
 `appsettings.json` を GUI の PropertyGrid で編集し、`Save && Apply` で反映できます。
 実行ディレクトリ直下に保存されます。
 
+6) カード選択ルール (JSON)
+
+`appsettings.json` の `CardSelection` を編集してデッキや優先度を変更できます。
+roles は `Spell`, `Building`, `Defensive`, `Cycle`, `WinCondition` を使用します。
+
+```json
+{
+  "CardSelection": {
+    "Cards": [
+      { "Id": "hog", "Cost": 4, "Roles": ["WinCondition"] },
+      { "Id": "musketeer", "Cost": 4, "Roles": ["Defensive"] }
+    ],
+    "ExcludedCardIds": ["fireball"],
+    "DefensivePriorityCardIds": ["musketeer", "ice_golem"],
+    "StrongThreatThreshold": 50,
+    "ExcludeSpells": true,
+    "ExcludeBuildings": true
+  }
+}
+```
+
 ## Current Features
 
 - scrcpy ウィンドウをキャプチャして表示
@@ -55,6 +76,7 @@ dotnet run --project src/WinFormsApp1
 - ROIをドラッグで調整 (Motion/Elixir/Hand)
 - 手札4枚のテンプレ認識
 - 手札からカード提案
+- カード選択ルールをJSONで設定可能
 
 ## Suggestion Logic
 
@@ -77,6 +99,6 @@ dotnet run --project src/WinFormsApp1
 ## Roadmap
 
 - [x] Phase 1: Capture + Draw MVP
-- [x] Phase 2: Motion + Elixir + Hand->Card suggestion
+- [x] Phase 2: Motion + Elixir + Hand->Card suggestion + config
 - [x] Phase 3: Suggestion logic + tests
 - [ ] Phase 4: Accuracy tuning + fixtures + parameter UI

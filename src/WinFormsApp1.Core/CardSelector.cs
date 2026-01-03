@@ -5,18 +5,20 @@ namespace WinFormsApp1.Core;
 
 public sealed class CardSelector
 {
-    private readonly CardSelectorSettings _settings;
+    private readonly CardSelectionSettings _settings;
     private readonly Dictionary<string, CardInfo> _cardInfo;
+    private readonly HashSet<string> _excludedIds;
 
     public CardSelector()
-        : this(CardSelectorSettings.Default)
+        : this(CardSelectionSettings.Default)
     {
     }
 
-    public CardSelector(CardSelectorSettings settings)
+    public CardSelector(CardSelectionSettings settings)
     {
         _settings = settings;
-        _cardInfo = BuildCardInfo();
+        _cardInfo = settings.BuildCardInfoMap();
+        _excludedIds = new HashSet<string>(_settings.ExcludedCardIds, StringComparer.OrdinalIgnoreCase);
     }
 
     public CardSelection? SelectCard(HandState hand, int elixir, MotionResult motion)
@@ -37,17 +39,13 @@ public sealed class CardSelector
                 continue;
             }
 
-            if (!_cardInfo.TryGetValue(id, out CardInfo info))
+            CardInfo info = GetInfoOrFallback(id, hand.GetCost(i));
+            if (IsExcluded(id, info))
             {
                 continue;
             }
 
-            if (IsExcluded(info))
-            {
-                continue;
-            }
-
-            if (info.Cost <= elixir)
+            if (info.Cost > 0 && info.Cost <= elixir)
             {
                 candidates.Add(new CardSelection(i, info.Id));
             }
@@ -70,8 +68,12 @@ public sealed class CardSelector
         return SelectLowestCost(candidates);
     }
 
-    private bool IsExcluded(CardInfo info)
+    private bool IsExcluded(string id, CardInfo info)
     {
+        if (_excludedIds.Contains(id))
+        {
+            return true;
+        }
         if (_settings.ExcludeSpells && info.Roles.HasFlag(CardRole.Spell))
         {
             return true;
@@ -91,7 +93,7 @@ public sealed class CardSelector
             candidateSet.Add(selection.CardId);
         }
 
-        foreach (string id in _settings.DefensivePriority)
+        foreach (string id in _settings.DefensivePriorityCardIds)
         {
             if (!candidateSet.Contains(id))
             {
@@ -136,18 +138,13 @@ public sealed class CardSelector
         return _cardInfo.TryGetValue(id, out CardInfo info) ? info.Cost : int.MaxValue;
     }
 
-    private static Dictionary<string, CardInfo> BuildCardInfo()
+    private CardInfo GetInfoOrFallback(string id, int fallbackCost)
     {
-        return new Dictionary<string, CardInfo>(StringComparer.OrdinalIgnoreCase)
+        if (_cardInfo.TryGetValue(id, out CardInfo info))
         {
-            ["hog"] = new("hog", 4, CardRole.WinCondition),
-            ["musketeer"] = new("musketeer", 4, CardRole.Defensive),
-            ["cannon"] = new("cannon", 3, CardRole.Building | CardRole.Defensive),
-            ["fireball"] = new("fireball", 4, CardRole.Spell),
-            ["ice_spirit"] = new("ice_spirit", 1, CardRole.Defensive | CardRole.Cycle),
-            ["skeletons"] = new("skeletons", 1, CardRole.Defensive | CardRole.Cycle),
-            ["ice_golem"] = new("ice_golem", 2, CardRole.Defensive),
-            ["log"] = new("log", 2, CardRole.Spell)
-        };
+            return info;
+        }
+
+        return new CardInfo(id, fallbackCost, CardRole.None);
     }
 }
