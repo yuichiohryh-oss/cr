@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 
 namespace WinFormsApp1.Core;
@@ -15,7 +16,13 @@ public interface IElixirEstimator
 
 public interface ISuggestionEngine
 {
-    Suggestion Decide(MotionResult motion, ElixirResult elixir, HandState hand, EnemyState enemy, DateTime now);
+    Suggestion Decide(
+        MotionResult motion,
+        ElixirResult elixir,
+        HandState hand,
+        EnemyState enemy,
+        IReadOnlyList<SpawnEvent> spawns,
+        DateTime now);
 }
 
 public interface ICardRecognizer

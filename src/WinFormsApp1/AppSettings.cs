@@ -58,7 +58,9 @@ public sealed class AppSettings
             Debug = new DebugSettingsDto
             {
                 ShowHpBars = false,
-                HpBarRoi = new RoiSettings { X = 0.05f, Y = 0.06f, Width = 0.90f, Height = 0.74f }
+                HpBarRoi = new RoiSettings { X = 0.05f, Y = 0.06f, Width = 0.90f, Height = 0.74f },
+                ShowLevelLabels = true,
+                LevelLabelRoi = new LevelLabelRoiSettings { X = 0.05f, Y = 0.08f, W = 0.90f, H = 0.75f }
             }
         };
     }
@@ -156,10 +158,27 @@ public sealed class DebugSettingsDto
 {
     public bool ShowHpBars { get; set; }
     public RoiSettings HpBarRoi { get; set; } = new();
+    public bool ShowLevelLabels { get; set; }
+    public LevelLabelRoiSettings LevelLabelRoi { get; set; } = new();
 
     public override string ToString() => "Debug";
 }
 
+[TypeConverter(typeof(ExpandableObjectConverter))]
+public sealed class LevelLabelRoiSettings
+{
+    public float X { get; set; }
+    public float Y { get; set; }
+    public float W { get; set; }
+    public float H { get; set; }
+
+    public Roi01 ToCore()
+    {
+        return new Roi01(X, Y, W, H);
+    }
+
+    public override string ToString() => $"{X:0.###},{Y:0.###},{W:0.###},{H:0.###}";
+}
 [TypeConverter(typeof(ExpandableObjectConverter))]
 public sealed class RoiSettings
 {

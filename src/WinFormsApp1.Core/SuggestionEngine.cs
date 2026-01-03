@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace WinFormsApp1.Core;
 
@@ -17,9 +18,16 @@ public sealed class SuggestionEngine : ISuggestionEngine
         _lastSuggest = DateTime.MinValue;
     }
 
-    public Suggestion Decide(MotionResult motion, ElixirResult elixir, HandState hand, EnemyState enemy, DateTime now)
+    public Suggestion Decide(
+        MotionResult motion,
+        ElixirResult elixir,
+        HandState hand,
+        EnemyState enemy,
+        IReadOnlyList<SpawnEvent> spawns,
+        DateTime now)
     {
-        bool canTrigger = motion.DefenseTrigger && elixir.ElixirInt >= _settings.NeedElixir;
+        bool hasSpawnThreat = HasRecentEnemySpawn(spawns, now, TimeSpan.FromMilliseconds(900));
+        bool canTrigger = (motion.DefenseTrigger || hasSpawnThreat) && elixir.ElixirInt >= _settings.NeedElixir;
         if (canTrigger)
         {
             _streak++;
@@ -50,6 +58,25 @@ public sealed class SuggestionEngine : ISuggestionEngine
         _streak = 0;
 
         return BuildSuggestion(motion, selection.Value);
+    }
+
+    private static bool HasRecentEnemySpawn(IReadOnlyList<SpawnEvent> spawns, DateTime now, TimeSpan window)
+    {
+        for (int i = 0; i < spawns.Count; i++)
+        {
+            SpawnEvent spawn = spawns[i];
+            if (spawn.Team != Team.Enemy)
+            {
+                continue;
+            }
+
+            if (now - spawn.Time <= window)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static Suggestion BuildSuggestion(MotionResult motion, CardSelection selection)

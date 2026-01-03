@@ -22,6 +22,8 @@ public partial class Form1 : Form
     private readonly System.Windows.Forms.Timer _timer;
     private readonly WindowCapture _capture;
     private readonly HpBarDetector _hpBarDetector;
+    private readonly LevelLabelDetector _levelLabelDetector;
+    private readonly SpawnEventDetector _spawnEventDetector;
     private IMotionAnalyzer _motionAnalyzer;
     private IElixirEstimator _elixirEstimator;
     private ISuggestionEngine _suggestionEngine;
@@ -40,6 +42,7 @@ public partial class Form1 : Form
     private ElixirResult _lastElixir;
     private HandState _lastHand;
     private HpBarDetectionResult _lastHpBars;
+    private IReadOnlyList<SpawnEvent> _lastSpawns;
     private AppSettings _settings;
     private readonly string _settingsPath;
     private ActiveRoi _activeRoi;
@@ -157,7 +160,10 @@ public partial class Form1 : Form
 
         _capture = new WindowCapture();
         _hpBarDetector = new HpBarDetector();
+        _levelLabelDetector = new LevelLabelDetector();
+        _spawnEventDetector = new SpawnEventDetector();
         _lastHpBars = HpBarDetectionResult.Empty;
+        _lastSpawns = Array.Empty<SpawnEvent>();
 
         _activeRoi = ActiveRoi.Hand;
         _handRoiRadio.Checked = true;
@@ -191,17 +197,21 @@ public partial class Form1 : Form
             ? _motionAnalyzer.Analyze(_prevFrame, frame)
             : new MotionResult(0, 0, false);
 
+        DateTime now = DateTime.Now;
         ElixirResult elixir = _elixirEstimator.Estimate(frame);
         HandState hand = _cardRecognizer != null ? _cardRecognizer.Recognize(frame) : HandState.Empty;
         HpBarDetectionResult hpBars = _settings.Debug.ShowHpBars
             ? _hpBarDetector.Detect(frame, _settings.Debug.HpBarRoi.ToCore())
             : HpBarDetectionResult.Empty;
-        Suggestion suggestion = _suggestionEngine.Decide(motion, elixir, hand, hpBars.Enemy, DateTime.Now);
+        IReadOnlyList<LevelLabelCandidate> labels = _levelLabelDetector.Detect(frame, _settings.Debug.LevelLabelRoi.ToCore());
+        IReadOnlyList<SpawnEvent> spawns = _spawnEventDetector.Update(labels, now);
+        Suggestion suggestion = _suggestionEngine.Decide(motion, elixir, hand, hpBars.Enemy, spawns, now);
 
         _lastSuggestion = suggestion;
         _lastElixir = elixir;
         _lastHand = hand;
         _lastHpBars = hpBars;
+        _lastSpawns = spawns;
 
         Image? oldImage = _pictureBox.Image;
         _pictureBox.Image = frame;
@@ -244,6 +254,11 @@ public partial class Form1 : Form
         if (_settings.Debug.ShowHpBars)
         {
             DrawHpBars(e.Graphics, displayRect, _lastHpBars);
+        }
+
+        if (_settings.Debug.ShowLevelLabels)
+        {
+            DrawSpawnEvents(e.Graphics, displayRect, _lastSpawns);
         }
 
         if (_dragging && _dragRect.Width > 1f && _dragRect.Height > 1f)
@@ -433,6 +448,21 @@ public partial class Form1 : Form
         }
     }
 
+    private static void DrawSpawnEvents(Graphics g, RectangleF displayRect, IReadOnlyList<SpawnEvent> spawns)
+    {
+        const float size = 8f;
+        using var enemyPen = new Pen(Color.Red, 2f);
+        using var friendlyPen = new Pen(Color.Cyan, 2f);
+
+        foreach (SpawnEvent spawn in spawns)
+        {
+            float x = displayRect.Left + (spawn.X01 * displayRect.Width);
+            float y = displayRect.Top + (spawn.Y01 * displayRect.Height);
+            Pen pen = spawn.Team == Team.Enemy ? enemyPen : friendlyPen;
+            g.DrawRectangle(pen, x - (size / 2f), y - (size / 2f), size, size);
+        }
+    }
+
     private void ApplySettings(AppSettings settings)
     {
         _motionAnalyzer = new MotionAnalyzer(settings.Motion.ToCore());
@@ -443,6 +473,7 @@ public partial class Form1 : Form
         _lastElixir = new ElixirResult(0f, 0);
         _lastHand = HandState.Empty;
         _lastHpBars = HpBarDetectionResult.Empty;
+        _lastSpawns = Array.Empty<SpawnEvent>();
     }
 
     private void SaveAndApplySettings()
