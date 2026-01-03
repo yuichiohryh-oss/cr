@@ -57,7 +57,8 @@ public sealed class AppSettings
             CardSelection = CardSelectionSettings.Default,
             Debug = new DebugSettingsDto
             {
-                ShowHpBars = false
+                ShowHpBars = false,
+                HpBarRoi = new RoiSettings { X = 0.05f, Y = 0.06f, Width = 0.90f, Height = 0.74f }
             }
         };
     }
@@ -154,6 +155,7 @@ public sealed class CardSettingsDto
 public sealed class DebugSettingsDto
 {
     public bool ShowHpBars { get; set; }
+    public RoiSettings HpBarRoi { get; set; } = new();
 
     public override string ToString() => "Debug";
 }
