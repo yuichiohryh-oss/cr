@@ -71,7 +71,8 @@ public sealed class AppSettings
                 OutputPath = "dataset/output.jsonl",
                 RecentSpawnSeconds = 4,
                 PendingTimeoutMs = 1500,
-                ElixirCommitTolerance = 1
+                ElixirCommitTolerance = 1,
+                UnitCommitMatchWindowMs = 700
             },
             Spells = new SpellSettingsDto
             {
@@ -81,7 +82,15 @@ public sealed class AppSettings
                 MinArea = 40,
                 MaxArea = 3000,
                 MinAspect = 4.0f,
-                SearchFrames = 4
+                SearchFrames = 4,
+                Fireball = new FireballSettingsDto
+                {
+                    WhiteThreshold = 220,
+                    MinArea = 60,
+                    MaxArea = 6000,
+                    MinAspect = 0.7f,
+                    MaxAspect = 1.4f
+                }
             },
             Debug = new DebugSettingsDto
             {
@@ -212,10 +221,17 @@ public sealed class TrainingSettingsDto
     public int RecentSpawnSeconds { get; set; }
     public int PendingTimeoutMs { get; set; }
     public int ElixirCommitTolerance { get; set; }
+    public int UnitCommitMatchWindowMs { get; set; }
 
     public TrainingSettings ToCore()
     {
-        return new TrainingSettings(Enabled, OutputPath, RecentSpawnSeconds, PendingTimeoutMs, ElixirCommitTolerance);
+        return new TrainingSettings(
+            Enabled,
+            OutputPath,
+            RecentSpawnSeconds,
+            PendingTimeoutMs,
+            ElixirCommitTolerance,
+            UnitCommitMatchWindowMs);
     }
 
     public override string ToString() => "Training";
@@ -231,13 +247,39 @@ public sealed class SpellSettingsDto
     public int MaxArea { get; set; }
     public float MinAspect { get; set; }
     public int SearchFrames { get; set; }
+    public FireballSettingsDto Fireball { get; set; } = new();
 
     public SpellDetectionSettings ToCore()
     {
-        return new SpellDetectionSettings(Enabled, Roi.ToCore(), DiffThreshold, MinArea, MaxArea, MinAspect, SearchFrames);
+        return new SpellDetectionSettings(
+            Enabled,
+            Roi.ToCore(),
+            DiffThreshold,
+            MinArea,
+            MaxArea,
+            MinAspect,
+            SearchFrames,
+            Fireball.ToCore());
     }
 
     public override string ToString() => "Spells";
+}
+
+[TypeConverter(typeof(ExpandableObjectConverter))]
+public sealed class FireballSettingsDto
+{
+    public int WhiteThreshold { get; set; }
+    public int MinArea { get; set; }
+    public int MaxArea { get; set; }
+    public float MinAspect { get; set; }
+    public float MaxAspect { get; set; }
+
+    public FireballDetectionSettings ToCore()
+    {
+        return new FireballDetectionSettings(WhiteThreshold, MinArea, MaxArea, MinAspect, MaxAspect);
+    }
+
+    public override string ToString() => "Fireball";
 }
 
 [TypeConverter(typeof(ExpandableObjectConverter))]
