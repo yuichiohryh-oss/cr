@@ -18,11 +18,18 @@ public readonly record struct StateSnapshot(
 
 public readonly record struct ActionSnapshot(string CardId, Lane Lane, float? X01, float? Y01);
 
-public readonly record struct TrainingSample(DateTime Timestamp, StateSnapshot State, ActionSnapshot Action);
+public readonly record struct TrainingSample(
+    DateTime Timestamp,
+    StateSnapshot State,
+    ActionSnapshot Action,
+    string MatchId = "",
+    long MatchElapsedMs = 0,
+    long FrameIndex = 0);
 
 public readonly record struct TrainingSettings(
     bool Enabled,
-    string OutputPath,
+    string OutputDir,
+    string FileNamePattern,
     int RecentSpawnSeconds,
     int PendingTimeoutMs,
     int ElixirCommitTolerance,
@@ -288,27 +295,51 @@ public sealed class ActionDetector
 
 public sealed class DatasetRecorder
 {
-    private readonly string _outputPath;
     private readonly JsonSerializerOptions _options;
+    private StreamWriter? _writer;
 
-    public DatasetRecorder(string outputPath)
+    public DatasetRecorder()
     {
-        _outputPath = outputPath;
         _options = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         };
     }
 
-    public void Append(TrainingSample sample)
+    public string? CurrentPath { get; private set; }
+
+    public bool IsOpen => _writer != null;
+
+    public void Open(string outputPath)
     {
-        string? dir = Path.GetDirectoryName(_outputPath);
+        Close();
+
+        string? dir = Path.GetDirectoryName(outputPath);
         if (!string.IsNullOrWhiteSpace(dir))
         {
             Directory.CreateDirectory(dir);
         }
 
+        _writer = new StreamWriter(outputPath, append: true);
+        CurrentPath = outputPath;
+    }
+
+    public void Close()
+    {
+        _writer?.Dispose();
+        _writer = null;
+        CurrentPath = null;
+    }
+
+    public void Append(TrainingSample sample)
+    {
+        if (_writer == null)
+        {
+            return;
+        }
+
         string json = JsonSerializer.Serialize(sample, _options);
-        File.AppendAllText(_outputPath, json + Environment.NewLine);
+        _writer.WriteLine(json);
+        _writer.Flush();
     }
 }
