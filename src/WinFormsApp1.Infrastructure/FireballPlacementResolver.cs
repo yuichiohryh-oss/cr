@@ -18,11 +18,17 @@ public sealed class FireballPlacementResolver : IActionPlacementResolver
 
     public bool CanResolve(ActionCommitEvent commit)
     {
-        return string.Equals(commit.CardId, "fireball", StringComparison.OrdinalIgnoreCase);
+        return _settings.Enabled
+            && string.Equals(commit.CardId, "fireball", StringComparison.OrdinalIgnoreCase);
     }
 
     public PlacementResult? Resolve(ActionCommitEvent commit, FrameContext context)
     {
+        if (!_settings.Enabled)
+        {
+            return null;
+        }
+
         if (context.Frame == null)
         {
             return null;

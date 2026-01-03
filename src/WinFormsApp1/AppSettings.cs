@@ -82,7 +82,7 @@ public sealed class AppSettings
                 MinArea = 40,
                 MaxArea = 3000,
                 MinAspect = 4.0f,
-                SearchFrames = 4,
+                SearchFrames = 6,
                 Fireball = new FireballSettingsDto
                 {
                     WhiteThreshold = 220,

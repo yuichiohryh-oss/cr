@@ -186,7 +186,7 @@ public partial class Form1 : Form
             40,
             3000,
             4f,
-            4,
+            6,
             new FireballDetectionSettings(220, 60, 6000, 0.7f, 1.4f));
 
         _activeRoi = ActiveRoi.Hand;
