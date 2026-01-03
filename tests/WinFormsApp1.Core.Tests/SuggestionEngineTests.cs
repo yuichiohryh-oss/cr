@@ -65,6 +65,26 @@ public sealed class SuggestionEngineTests
     }
 
     [Fact]
+    public void CooldownAfterSuggestion_RequiresNewStreak()
+    {
+        var settings = new SuggestionSettings(NeedElixir: 3, RequiredStreak: 2, Cooldown: TimeSpan.FromMilliseconds(700));
+        var engine = new SuggestionEngine(settings, new CardSelector(CreateSettings()));
+
+        var motion = new MotionResult(ThreatLeft: 15, ThreatRight: 10, DefenseTrigger: true);
+        var elixir = new ElixirResult(Filled01: 0.6f, ElixirInt: 6);
+        var hand = HandState.FromSlots(new[] { "skeletons", "hog", "fireball", "log" });
+
+        var t0 = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        engine.Decide(motion, elixir, hand, t0);
+        var first = engine.Decide(motion, elixir, hand, t0.AddMilliseconds(200));
+
+        var afterCooldown = engine.Decide(motion, elixir, hand, t0.AddMilliseconds(900));
+
+        Assert.True(first.HasSuggestion);
+        Assert.False(afterCooldown.HasSuggestion);
+    }
+
+    [Fact]
     public void NoSelectableCard_NoSuggestion()
     {
         var settings = new SuggestionSettings(NeedElixir: 1, RequiredStreak: 2, Cooldown: TimeSpan.FromMilliseconds(700));

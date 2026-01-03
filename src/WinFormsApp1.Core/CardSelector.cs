@@ -30,7 +30,7 @@ public sealed class CardSelector
 
         bool strongThreat = motion.ThreatLeft + motion.ThreatRight >= _settings.StrongThreatThreshold;
 
-        var candidates = new List<CardSelection>();
+        var candidates = new List<Candidate>();
         for (int i = 0; i < hand.Slots.Length; i++)
         {
             string id = hand.GetSlot(i);
@@ -45,9 +45,10 @@ public sealed class CardSelector
                 continue;
             }
 
-            if (info.Cost > 0 && info.Cost <= elixir)
+            int cost = GetEffectiveCost(info, hand.GetCost(i));
+            if (cost > 0 && cost <= elixir)
             {
-                candidates.Add(new CardSelection(i, info.Id));
+                candidates.Add(new Candidate(new CardSelection(i, info.Id), cost, info));
             }
         }
 
@@ -85,12 +86,12 @@ public sealed class CardSelector
         return false;
     }
 
-    private CardSelection? SelectDefensePriority(List<CardSelection> candidates)
+    private CardSelection? SelectDefensePriority(List<Candidate> candidates)
     {
         var candidateSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (CardSelection selection in candidates)
+        foreach (Candidate selection in candidates)
         {
-            candidateSet.Add(selection.CardId);
+            candidateSet.Add(selection.Selection.CardId);
         }
 
         foreach (string id in _settings.DefensivePriorityCardIds)
@@ -104,9 +105,9 @@ public sealed class CardSelector
             {
                 for (int i = 0; i < candidates.Count; i++)
                 {
-                    if (string.Equals(candidates[i].CardId, id, StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(candidates[i].Selection.CardId, id, StringComparison.OrdinalIgnoreCase))
                     {
-                        return candidates[i];
+                        return candidates[i].Selection;
                     }
                 }
             }
@@ -115,27 +116,24 @@ public sealed class CardSelector
         return null;
     }
 
-    private CardSelection SelectLowestCost(List<CardSelection> candidates)
+    private static CardSelection SelectLowestCost(List<Candidate> candidates)
     {
-        CardSelection best = candidates[0];
-        int bestCost = GetCost(best.CardId);
+        Candidate best = candidates[0];
 
         for (int i = 1; i < candidates.Count; i++)
         {
-            int cost = GetCost(candidates[i].CardId);
-            if (cost < bestCost)
+            if (candidates[i].Cost < best.Cost)
             {
                 best = candidates[i];
-                bestCost = cost;
             }
         }
 
-        return best;
+        return best.Selection;
     }
 
-    private int GetCost(string id)
+    private static int GetEffectiveCost(CardInfo info, int handCost)
     {
-        return _cardInfo.TryGetValue(id, out CardInfo info) ? info.Cost : int.MaxValue;
+        return handCost > 0 ? handCost : info.Cost;
     }
 
     private CardInfo GetInfoOrFallback(string id, int fallbackCost)
@@ -147,4 +145,6 @@ public sealed class CardSelector
 
         return new CardInfo(id, fallbackCost, CardRole.None);
     }
+
+    private readonly record struct Candidate(CardSelection Selection, int Cost, CardInfo Info);
 }

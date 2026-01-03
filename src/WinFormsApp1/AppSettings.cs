@@ -46,7 +46,7 @@ public sealed class AppSettings
             },
             Cards = new CardSettingsDto
             {
-                TemplateDir = "tests/WinFormsApp1.Core.Tests/fixtures/cards",
+                TemplateDir = "assets/cards",
                 HandRoi = new RoiSettings { X = 0.05f, Y = 0.90f, Width = 0.90f, Height = 0.09f },
                 SlotCount = 4,
                 SlotInnerPadding01 = 0.08f,
