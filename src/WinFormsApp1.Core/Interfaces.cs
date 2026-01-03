@@ -14,6 +14,11 @@ public interface IElixirEstimator
     ElixirResult Estimate(Bitmap frame);
 }
 
+public interface IMatchPhaseEstimator
+{
+    MatchClockState Estimate(Bitmap frame);
+}
+
 public interface ISuggestionEngine
 {
     Suggestion Decide(
@@ -22,6 +27,7 @@ public interface ISuggestionEngine
         HandState hand,
         EnemyState enemy,
         IReadOnlyList<SpawnEvent> spawns,
+        MatchClockState clockState,
         DateTime now);
 }
 
