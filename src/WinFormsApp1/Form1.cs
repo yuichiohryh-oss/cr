@@ -194,7 +194,7 @@ public partial class Form1 : Form
         ElixirResult elixir = _elixirEstimator.Estimate(frame);
         HandState hand = _cardRecognizer != null ? _cardRecognizer.Recognize(frame) : HandState.Empty;
         HpBarDetectionResult hpBars = _settings.Debug.ShowHpBars
-            ? _hpBarDetector.Detect(frame)
+            ? _hpBarDetector.Detect(frame, _settings.Debug.HpBarRoi.ToCore())
             : HpBarDetectionResult.Empty;
         Suggestion suggestion = _suggestionEngine.Decide(motion, elixir, hand, hpBars.Enemy, DateTime.Now);
 
@@ -416,7 +416,7 @@ public partial class Form1 : Form
         const float barWidth = 14f;
         const float barHeight = 4f;
         using var enemyPen = new Pen(Color.Red, 2f);
-        using var friendlyPen = new Pen(Color.Lime, 2f);
+        using var friendlyPen = new Pen(Color.Cyan, 2f);
 
         foreach (var unit in bars.Enemy.Units)
         {
