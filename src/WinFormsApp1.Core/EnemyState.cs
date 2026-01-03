@@ -12,6 +12,7 @@ public enum Lane
 {
     Unknown,
     Left,
+    Center,
     Right
 }
 
