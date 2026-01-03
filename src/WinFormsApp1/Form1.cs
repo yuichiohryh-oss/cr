@@ -26,6 +26,7 @@ public partial class Form1 : Form
     private readonly SpawnEventDetector _spawnEventDetector;
     private IMotionAnalyzer _motionAnalyzer;
     private IElixirEstimator _elixirEstimator;
+    private IMatchPhaseEstimator _matchPhaseEstimator;
     private ISuggestionEngine _suggestionEngine;
     private ICardRecognizer? _cardRecognizer;
     private readonly PropertyGrid _propertyGrid;
@@ -43,6 +44,7 @@ public partial class Form1 : Form
     private HandState _lastHand;
     private HpBarDetectionResult _lastHpBars;
     private IReadOnlyList<SpawnEvent> _lastSpawns;
+    private MatchClockState _lastClock;
     private AppSettings _settings;
     private readonly string _settingsPath;
     private ActiveRoi _activeRoi;
@@ -164,6 +166,7 @@ public partial class Form1 : Form
         _spawnEventDetector = new SpawnEventDetector();
         _lastHpBars = HpBarDetectionResult.Empty;
         _lastSpawns = Array.Empty<SpawnEvent>();
+        _lastClock = MatchClockState.Unknown;
 
         _activeRoi = ActiveRoi.Hand;
         _handRoiRadio.Checked = true;
@@ -199,19 +202,21 @@ public partial class Form1 : Form
 
         DateTime now = DateTime.Now;
         ElixirResult elixir = _elixirEstimator.Estimate(frame);
+        MatchClockState clockState = _matchPhaseEstimator.Estimate(frame);
         HandState hand = _cardRecognizer != null ? _cardRecognizer.Recognize(frame) : HandState.Empty;
         HpBarDetectionResult hpBars = _settings.Debug.ShowHpBars
             ? _hpBarDetector.Detect(frame, _settings.Debug.HpBarRoi.ToCore())
             : HpBarDetectionResult.Empty;
         IReadOnlyList<LevelLabelCandidate> labels = _levelLabelDetector.Detect(frame, _settings.Debug.LevelLabelRoi.ToCore());
         IReadOnlyList<SpawnEvent> spawns = _spawnEventDetector.Update(labels, now);
-        Suggestion suggestion = _suggestionEngine.Decide(motion, elixir, hand, hpBars.Enemy, spawns, now);
+        Suggestion suggestion = _suggestionEngine.Decide(motion, elixir, hand, hpBars.Enemy, spawns, clockState, now);
 
         _lastSuggestion = suggestion;
         _lastElixir = elixir;
         _lastHand = hand;
         _lastHpBars = hpBars;
         _lastSpawns = spawns;
+        _lastClock = clockState;
 
         Image? oldImage = _pictureBox.Image;
         _pictureBox.Image = frame;
@@ -281,6 +286,11 @@ public partial class Form1 : Form
 
         string handText = _lastHand.Slots.Length == 0 ? "Hand: (unknown)" : $"Hand: {string.Join(", ", _lastHand.Slots)}";
         e.Graphics.DrawString(handText, debugFont, debugBrush, displayRect.Left + 8f, displayRect.Top + 28f);
+        if (_settings.Debug.ShowClockPhase)
+        {
+            string clockText = $"Phase: {_lastClock.Phase} ({_lastClock.Confidence:0.00})";
+            e.Graphics.DrawString(clockText, debugFont, debugBrush, displayRect.Left + 8f, displayRect.Top + 48f);
+        }
     }
 
     private static RectangleF GetImageDisplayRect(PictureBox pictureBox)
@@ -467,6 +477,7 @@ public partial class Form1 : Form
     {
         _motionAnalyzer = new MotionAnalyzer(settings.Motion.ToCore());
         _elixirEstimator = new ElixirEstimator(settings.Elixir.ToCore());
+        _matchPhaseEstimator = new MatchPhaseEstimator(settings.Clock.ToCore());
         _suggestionEngine = new SuggestionEngine(settings.Suggestion.ToCore(), new CardSelector(settings.CardSelection));
         _cardRecognizer = TryCreateCardRecognizer(settings.Cards);
         _lastSuggestion = Suggestion.None;
@@ -474,6 +485,7 @@ public partial class Form1 : Form
         _lastHand = HandState.Empty;
         _lastHpBars = HpBarDetectionResult.Empty;
         _lastSpawns = Array.Empty<SpawnEvent>();
+        _lastClock = MatchClockState.Unknown;
     }
 
     private void SaveAndApplySettings()

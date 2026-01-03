@@ -24,6 +24,7 @@ public sealed class SuggestionEngine : ISuggestionEngine
         HandState hand,
         EnemyState enemy,
         IReadOnlyList<SpawnEvent> spawns,
+        MatchClockState clockState,
         DateTime now)
     {
         bool hasSpawnThreat = HasRecentEnemySpawn(spawns, now, TimeSpan.FromMilliseconds(900));
