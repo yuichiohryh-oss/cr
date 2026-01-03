@@ -45,6 +45,7 @@ dotnet run --project src/WinFormsApp1
 
 `appsettings.json` を GUI の PropertyGrid で編集し、`Save && Apply` で反映できます。
 実行ディレクトリ直下に保存されます。
+`Debug.ShowHpBars` を true にすると、検出した HP バーの位置を枠で表示します。
 
 6) カード選択ルール (JSON)
 
@@ -78,6 +79,7 @@ roles は `Spell`, `Building`, `Defensive`, `Cycle`, `WinCondition` を使用し
 - 手札4枚のテンプレ認識
 - 手札からカード提案
 - カード選択ルールをJSONで設定可能
+- HPバー検出のデバッグ表示 (enemy/friendly)
 
 ## Suggestion Logic
 
@@ -101,5 +103,5 @@ roles は `Spell`, `Building`, `Defensive`, `Cycle`, `WinCondition` を使用し
 
 - [x] Phase 1: Capture + Draw MVP
 - [x] Phase 2: Motion + Elixir + Hand->Card suggestion + config
-- [x] Phase 3: Suggestion logic + tests
-- [ ] Phase 4: Accuracy tuning + fixtures + parameter UI
+- [x] Phase 3: HPバー検出のブートストラップ
+- [ ] Phase 4: 敵ユニット分類 + 精度調整 + fixtures + parameter UI
