@@ -14,6 +14,7 @@ public sealed class AppSettings
     public SuggestionSettingsDto Suggestion { get; set; } = new();
     public CardSettingsDto Cards { get; set; } = new();
     public CardSelectionSettings CardSelection { get; set; } = CardSelectionSettings.Default;
+    public TrainingSettingsDto Training { get; set; } = new();
     public DebugSettingsDto Debug { get; set; } = new();
 
     public static AppSettings CreateDefault()
@@ -63,6 +64,12 @@ public sealed class AppSettings
                 MinScore = 0.70f
             },
             CardSelection = CardSelectionSettings.Default,
+            Training = new TrainingSettingsDto
+            {
+                Enabled = false,
+                OutputPath = "dataset/output.jsonl",
+                RecentSpawnSeconds = 4
+            },
             Debug = new DebugSettingsDto
             {
                 ShowHpBars = false,
@@ -181,6 +188,21 @@ public sealed class CardSettingsDto
     }
 
     public override string ToString() => "Cards";
+}
+
+[TypeConverter(typeof(ExpandableObjectConverter))]
+public sealed class TrainingSettingsDto
+{
+    public bool Enabled { get; set; }
+    public string OutputPath { get; set; } = string.Empty;
+    public int RecentSpawnSeconds { get; set; }
+
+    public TrainingSettings ToCore()
+    {
+        return new TrainingSettings(Enabled, OutputPath, RecentSpawnSeconds);
+    }
+
+    public override string ToString() => "Training";
 }
 
 [TypeConverter(typeof(ExpandableObjectConverter))]

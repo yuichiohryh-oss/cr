@@ -24,6 +24,9 @@ public partial class Form1 : Form
     private readonly HpBarDetector _hpBarDetector;
     private readonly LevelLabelDetector _levelLabelDetector;
     private readonly SpawnEventDetector _spawnEventDetector;
+    private StateBuilder _stateBuilder;
+    private ActionDetector _actionDetector;
+    private DatasetRecorder? _datasetRecorder;
     private IMotionAnalyzer _motionAnalyzer;
     private IElixirEstimator _elixirEstimator;
     private IMatchPhaseEstimator _matchPhaseEstimator;
@@ -45,6 +48,7 @@ public partial class Form1 : Form
     private HpBarDetectionResult _lastHpBars;
     private IReadOnlyList<SpawnEvent> _lastSpawns;
     private MatchClockState _lastClock;
+    private TrainingSettings _trainingSettings;
     private AppSettings _settings;
     private readonly string _settingsPath;
     private ActiveRoi _activeRoi;
@@ -167,6 +171,7 @@ public partial class Form1 : Form
         _lastHpBars = HpBarDetectionResult.Empty;
         _lastSpawns = Array.Empty<SpawnEvent>();
         _lastClock = MatchClockState.Unknown;
+        _trainingSettings = new TrainingSettings(false, string.Empty, 4);
 
         _activeRoi = ActiveRoi.Hand;
         _handRoiRadio.Checked = true;
@@ -210,6 +215,23 @@ public partial class Form1 : Form
         IReadOnlyList<LevelLabelCandidate> labels = _levelLabelDetector.Detect(frame, _settings.Debug.LevelLabelRoi.ToCore());
         IReadOnlyList<SpawnEvent> spawns = _spawnEventDetector.Update(labels, now);
         Suggestion suggestion = _suggestionEngine.Decide(motion, elixir, hand, hpBars.Enemy, spawns, clockState, now);
+
+        if (_trainingSettings.Enabled && _datasetRecorder != null)
+        {
+            StateSnapshot state = _stateBuilder.Build(clockState, elixir, spawns, hand, now);
+            ActionSnapshot? action = _actionDetector.Update(hand, spawns, now);
+            if (action.HasValue)
+            {
+                var sample = new TrainingSample(DateTime.UtcNow, state, action.Value);
+                try
+                {
+                    _datasetRecorder.Append(sample);
+                }
+                catch
+                {
+                }
+            }
+        }
 
         _lastSuggestion = suggestion;
         _lastElixir = elixir;
@@ -480,6 +502,12 @@ public partial class Form1 : Form
         _matchPhaseEstimator = new MatchPhaseEstimator(settings.Clock.ToCore());
         _suggestionEngine = new SuggestionEngine(settings.Suggestion.ToCore(), new CardSelector(settings.CardSelection));
         _cardRecognizer = TryCreateCardRecognizer(settings.Cards);
+        _trainingSettings = settings.Training.ToCore();
+        _stateBuilder = new StateBuilder(_trainingSettings.RecentSpawnSeconds);
+        _actionDetector = new ActionDetector();
+        _datasetRecorder = _trainingSettings.Enabled
+            ? new DatasetRecorder(ResolveTrainingPath(_trainingSettings.OutputPath))
+            : null;
         _lastSuggestion = Suggestion.None;
         _lastElixir = new ElixirResult(0f, 0);
         _lastHand = HandState.Empty;
@@ -581,5 +609,20 @@ public partial class Form1 : Form
         }
 
         return null;
+    }
+
+    private static string ResolveTrainingPath(string outputPath)
+    {
+        if (string.IsNullOrWhiteSpace(outputPath))
+        {
+            return Path.Combine(AppContext.BaseDirectory, "dataset", "output.jsonl");
+        }
+
+        if (Path.IsPathRooted(outputPath))
+        {
+            return outputPath;
+        }
+
+        return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, outputPath));
     }
 }
