@@ -83,7 +83,7 @@ public sealed class FrameSaver
         if (extension == "jpeg")
         {
             ImageCodecInfo? codec = ImageCodecInfo.GetImageEncoders()
-                .FirstOrDefault(c => c.MimeType.Equals("image/jpeg", StringComparison.OrdinalIgnoreCase));
+                .FirstOrDefault(c => string.Equals(c?.MimeType, "image/jpeg", StringComparison.OrdinalIgnoreCase));
             if (codec == null)
             {
                 bitmap.Save(path, ImageFormat.Jpeg);
@@ -91,8 +91,15 @@ public sealed class FrameSaver
             }
 
             using var parameters = new EncoderParameters(1);
+            EncoderParameter[]? parametersArray = parameters.Param;
+            if (parametersArray == null || parametersArray.Length == 0)
+            {
+                bitmap.Save(path, ImageFormat.Jpeg);
+                return;
+            }
+
             long quality = Math.Clamp(jpegQuality, 0, 100);
-            parameters.Param[0] = new EncoderParameter(Encoder.Quality, quality);
+            parametersArray[0] = new EncoderParameter(Encoder.Quality, quality);
             bitmap.Save(path, codec, parameters);
             return;
         }

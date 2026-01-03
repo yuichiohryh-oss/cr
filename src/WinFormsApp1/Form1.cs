@@ -389,7 +389,9 @@ public partial class Form1 : Form
                         frameIndex);
                     if (saved.HasValue)
                     {
-                        sample = sample with { PrevFramePath = saved.Value.PrevPath, CurrFramePath = saved.Value.CurrPath };
+                        string prevRel = Path.GetRelativePath(matchDir, Path.Combine(matchDir, saved.Value.PrevPath)).Replace('\\', '/');
+                        string currRel = Path.GetRelativePath(matchDir, Path.Combine(matchDir, saved.Value.CurrPath)).Replace('\\', '/');
+                        sample = sample with { PrevFramePath = prevRel, CurrFramePath = currRel };
                     }
                 }
                 AppendSampleSafe(sample);
