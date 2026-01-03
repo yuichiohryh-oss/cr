@@ -256,7 +256,7 @@ public partial class Form1 : Form
         string elixirText = $"Elixir: {_lastElixir.ElixirInt}/10";
         e.Graphics.DrawString(elixirText, debugFont, debugBrush, displayRect.Left + 8f, displayRect.Top + 8f);
 
-        string handText = _lastHand.Slots.Length == 0 ? "Hand: (unknown)" : $"Hand: {string.Join(\", \", _lastHand.Slots)}";
+        string handText = _lastHand.Slots.Length == 0 ? "Hand: (unknown)" : $"Hand: {string.Join(", ", _lastHand.Slots)}";
         e.Graphics.DrawString(handText, debugFont, debugBrush, displayRect.Left + 8f, displayRect.Top + 28f);
     }
 
