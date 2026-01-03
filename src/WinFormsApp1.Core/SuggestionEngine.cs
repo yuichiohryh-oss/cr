@@ -17,7 +17,7 @@ public sealed class SuggestionEngine : ISuggestionEngine
         _lastSuggest = DateTime.MinValue;
     }
 
-    public Suggestion Decide(MotionResult motion, ElixirResult elixir, HandState hand, DateTime now)
+    public Suggestion Decide(MotionResult motion, ElixirResult elixir, HandState hand, EnemyState enemy, DateTime now)
     {
         bool canTrigger = motion.DefenseTrigger && elixir.ElixirInt >= _settings.NeedElixir;
         if (canTrigger)

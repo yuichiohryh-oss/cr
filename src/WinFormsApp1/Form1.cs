@@ -189,7 +189,7 @@ public partial class Form1 : Form
 
         ElixirResult elixir = _elixirEstimator.Estimate(frame);
         HandState hand = _cardRecognizer != null ? _cardRecognizer.Recognize(frame) : HandState.Empty;
-        Suggestion suggestion = _suggestionEngine.Decide(motion, elixir, hand, DateTime.Now);
+        Suggestion suggestion = _suggestionEngine.Decide(motion, elixir, hand, EnemyState.Empty, DateTime.Now);
 
         _lastSuggestion = suggestion;
         _lastElixir = elixir;
