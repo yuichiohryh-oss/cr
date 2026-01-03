@@ -11,6 +11,11 @@ public readonly record struct HandState(string[] Slots, int[] Costs, float[] Con
         return new HandState(slots, Array.Empty<int>(), Array.Empty<float>());
     }
 
+    public static HandState FromSlotsAndCosts(string[] slots, int[] costs)
+    {
+        return new HandState(slots, costs, Array.Empty<float>());
+    }
+
     public string GetSlot(int index)
     {
         if (Slots.Length == 0 || index < 0 || index >= Slots.Length)

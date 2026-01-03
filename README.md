@@ -50,6 +50,7 @@ dotnet run --project src/WinFormsApp1
 
 `appsettings.json` の `CardSelection` を編集してデッキや優先度を変更できます。
 roles は `Spell`, `Building`, `Defensive`, `Cycle`, `WinCondition` を使用します。
+テンプレ画像は `src/WinFormsApp1/assets/cards` に配置し、実行時は `assets/cards` を参照します。
 
 ```json
 {

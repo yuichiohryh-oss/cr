@@ -47,6 +47,7 @@ public sealed class SuggestionEngine : ISuggestionEngine
         }
 
         _lastSuggest = now;
+        _streak = 0;
 
         return BuildSuggestion(motion, selection.Value);
     }

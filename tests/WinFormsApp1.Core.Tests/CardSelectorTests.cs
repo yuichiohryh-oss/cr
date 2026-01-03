@@ -79,6 +79,23 @@ public sealed class CardSelectorTests
     }
 
     [Fact]
+    public void UnknownCardId_UsesHandCost()
+    {
+        var settings = CreateSettings();
+        var selector = new CardSelector(settings);
+        var hand = HandState.FromSlotsAndCosts(
+            new[] { "unknown_card", "hog", "fireball", "log" },
+            new[] { 1, 4, 4, 2 }
+        );
+        var motion = new MotionResult(ThreatLeft: 0, ThreatRight: 0, DefenseTrigger: false);
+
+        CardSelection? selection = selector.SelectCard(hand, elixir: 2, motion);
+
+        Assert.NotNull(selection);
+        Assert.Equal("unknown_card", selection!.Value.CardId);
+    }
+
+    [Fact]
     public void UnknownCardId_DoesNotThrow()
     {
         var settings = CreateSettings();
