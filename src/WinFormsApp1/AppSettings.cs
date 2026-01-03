@@ -10,6 +10,7 @@ public sealed class AppSettings
 {
     public MotionSettingsDto Motion { get; set; } = new();
     public ElixirSettingsDto Elixir { get; set; } = new();
+    public ClockSettingsDto Clock { get; set; } = new();
     public SuggestionSettingsDto Suggestion { get; set; } = new();
     public CardSettingsDto Cards { get; set; } = new();
     public CardSelectionSettings CardSelection { get; set; } = CardSelectionSettings.Default;
@@ -39,6 +40,13 @@ public sealed class AppSettings
                 EmptyBaseline01 = 0.08f,
                 FullBaseline01 = 0.79f
             },
+            Clock = new ClockSettingsDto
+            {
+                Roi = new RoiSettings { X = 0.78f, Y = 0.02f, Width = 0.20f, Height = 0.10f },
+                WhiteThreshold = 210,
+                MinWhiteRatio = 0.01f,
+                EarlyWhiteRatio = 0.05f
+            },
             Suggestion = new SuggestionSettingsDto
             {
                 NeedElixir = 3,
@@ -60,7 +68,8 @@ public sealed class AppSettings
                 ShowHpBars = false,
                 HpBarRoi = new RoiSettings { X = 0.05f, Y = 0.06f, Width = 0.90f, Height = 0.74f },
                 ShowLevelLabels = true,
-                LevelLabelRoi = new LevelLabelRoiSettings { X = 0.05f, Y = 0.08f, W = 0.90f, H = 0.75f }
+                LevelLabelRoi = new LevelLabelRoiSettings { X = 0.05f, Y = 0.08f, W = 0.90f, H = 0.75f },
+                ShowClockPhase = true
             }
         };
     }
@@ -115,6 +124,27 @@ public sealed class ElixirSettingsDto
 }
 
 [TypeConverter(typeof(ExpandableObjectConverter))]
+public sealed class ClockSettingsDto
+{
+    public RoiSettings Roi { get; set; } = new();
+    public int WhiteThreshold { get; set; }
+    public float MinWhiteRatio { get; set; }
+    public float EarlyWhiteRatio { get; set; }
+
+    public MatchClockSettings ToCore()
+    {
+        return new MatchClockSettings(
+            Roi.ToCore(),
+            WhiteThreshold,
+            MinWhiteRatio,
+            EarlyWhiteRatio
+        );
+    }
+
+    public override string ToString() => "Clock";
+}
+
+[TypeConverter(typeof(ExpandableObjectConverter))]
 public sealed class SuggestionSettingsDto
 {
     public int NeedElixir { get; set; }
@@ -160,6 +190,7 @@ public sealed class DebugSettingsDto
     public RoiSettings HpBarRoi { get; set; } = new();
     public bool ShowLevelLabels { get; set; }
     public LevelLabelRoiSettings LevelLabelRoi { get; set; } = new();
+    public bool ShowClockPhase { get; set; }
 
     public override string ToString() => "Debug";
 }
