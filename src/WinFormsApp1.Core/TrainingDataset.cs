@@ -16,11 +16,26 @@ public readonly record struct StateSnapshot(
     IReadOnlyList<SpawnSnapshot> FriendlySpawns,
     IReadOnlyList<HandCardSnapshot> Hand);
 
-public readonly record struct ActionSnapshot(string CardId, Lane Lane, float X01, float Y01);
+public readonly record struct ActionSnapshot(string CardId, Lane Lane, float? X01, float? Y01);
 
 public readonly record struct TrainingSample(DateTime Timestamp, StateSnapshot State, ActionSnapshot Action);
 
-public readonly record struct TrainingSettings(bool Enabled, string OutputPath, int RecentSpawnSeconds);
+public readonly record struct TrainingSettings(
+    bool Enabled,
+    string OutputPath,
+    int RecentSpawnSeconds,
+    int PendingTimeoutMs,
+    int ElixirCommitTolerance
+);
+
+public readonly record struct ActionCommit(ActionSnapshot Action, bool NeedsSpellPosition);
+
+public readonly record struct PendingAction(
+    string CardId,
+    int Cost,
+    DateTime StartTime,
+    int ElixirAtStart
+);
 
 public sealed class StateBuilder
 {
@@ -75,17 +90,19 @@ public sealed class StateBuilder
 public sealed class ActionDetector
 {
     private readonly TimeSpan _spawnWindow;
-    private readonly TimeSpan _minInterval;
+    private readonly TimeSpan _pendingTimeout;
+    private readonly int _elixirTolerance;
     private HandState _previous = HandState.Empty;
-    private DateTime _lastActionTime = DateTime.MinValue;
+    private PendingAction? _pending;
 
-    public ActionDetector(int spawnWindowMs = 900, int minIntervalMs = 600)
+    public ActionDetector(int spawnWindowMs = 900, int pendingTimeoutMs = 1500, int elixirCommitTolerance = 1)
     {
         _spawnWindow = TimeSpan.FromMilliseconds(spawnWindowMs);
-        _minInterval = TimeSpan.FromMilliseconds(minIntervalMs);
+        _pendingTimeout = TimeSpan.FromMilliseconds(pendingTimeoutMs);
+        _elixirTolerance = Math.Max(0, elixirCommitTolerance);
     }
 
-    public ActionSnapshot? Update(HandState currentHand, IReadOnlyList<SpawnEvent> spawns, DateTime now)
+    public ActionCommit? Update(HandState currentHand, ElixirResult elixir, IReadOnlyList<SpawnEvent> spawns, DateTime now)
     {
         if (_previous.Slots.Length == 0)
         {
@@ -93,28 +110,37 @@ public sealed class ActionDetector
             return null;
         }
 
-        if (now - _lastActionTime < _minInterval)
+        if (_pending.HasValue)
         {
-            _previous = currentHand;
-            return null;
+            PendingAction pending = _pending.Value;
+            if (now - pending.StartTime > _pendingTimeout)
+            {
+                _pending = null;
+            }
+            else if (IsCardPresent(currentHand, pending.CardId))
+            {
+                _pending = null;
+            }
+            else if (IsElixirCommitted(pending, elixir.ElixirInt))
+            {
+                ActionSnapshot action = BuildActionSnapshot(pending.CardId, spawns, now);
+                bool needsSpellPosition = IsLogCard(pending.CardId);
+                _pending = null;
+                _previous = currentHand;
+                return new ActionCommit(action, needsSpellPosition);
+            }
         }
 
-        if (!TryFindRemovedCard(_previous, currentHand, out string? removedCard, out int removedCost))
+        if (_pending == null && TryFindRemovedCard(_previous, currentHand, out string? removedCard, out int removedCost))
         {
-            _previous = currentHand;
-            return null;
-        }
-
-        if (!TryFindRecentFriendlySpawn(spawns, now, out SpawnEvent spawn))
-        {
-            _previous = currentHand;
-            return null;
+            if (!string.IsNullOrWhiteSpace(removedCard))
+            {
+                _pending = new PendingAction(removedCard, removedCost, now, elixir.ElixirInt);
+            }
         }
 
         _previous = currentHand;
-        _lastActionTime = now;
-
-        return new ActionSnapshot(removedCard ?? string.Empty, spawn.Lane, spawn.X01, spawn.Y01);
+        return null;
     }
 
     private bool TryFindRecentFriendlySpawn(IReadOnlyList<SpawnEvent> spawns, DateTime now, out SpawnEvent result)
@@ -136,6 +162,41 @@ public sealed class ActionDetector
 
         result = default;
         return false;
+    }
+
+    private static bool IsLogCard(string cardId)
+    {
+        return string.Equals(cardId, "log", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool IsElixirCommitted(PendingAction pending, int elixirNow)
+    {
+        int cost = Math.Max(1, pending.Cost);
+        int requiredDrop = Math.Max(1, cost - _elixirTolerance);
+        return elixirNow <= pending.ElixirAtStart - requiredDrop;
+    }
+
+    private static bool IsCardPresent(HandState hand, string cardId)
+    {
+        for (int i = 0; i < hand.Slots.Length; i++)
+        {
+            if (string.Equals(hand.Slots[i], cardId, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private ActionSnapshot BuildActionSnapshot(string cardId, IReadOnlyList<SpawnEvent> spawns, DateTime now)
+    {
+        if (!IsLogCard(cardId) && TryFindRecentFriendlySpawn(spawns, now, out SpawnEvent spawn))
+        {
+            return new ActionSnapshot(cardId, spawn.Lane, spawn.X01, spawn.Y01);
+        }
+
+        return new ActionSnapshot(cardId, Lane.Unknown, null, null);
     }
 
     private static bool TryFindRemovedCard(HandState previous, HandState current, out string? removedCard, out int removedCost)

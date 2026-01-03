@@ -24,6 +24,7 @@ public partial class Form1 : Form
     private readonly HpBarDetector _hpBarDetector;
     private readonly LevelLabelDetector _levelLabelDetector;
     private readonly SpawnEventDetector _spawnEventDetector;
+    private readonly SpellPlacementDetector _spellPlacementDetector;
     private StateBuilder _stateBuilder;
     private ActionDetector _actionDetector;
     private DatasetRecorder? _datasetRecorder;
@@ -49,6 +50,10 @@ public partial class Form1 : Form
     private IReadOnlyList<SpawnEvent> _lastSpawns;
     private MatchClockState _lastClock;
     private TrainingSettings _trainingSettings;
+    private SpellDetectionSettings _spellSettings;
+    private SpellDetectionResult? _lastSpellMarker;
+    private TrainingSample? _pendingLogSample;
+    private int _pendingLogFrames;
     private AppSettings _settings;
     private readonly string _settingsPath;
     private ActiveRoi _activeRoi;
@@ -168,10 +173,13 @@ public partial class Form1 : Form
         _hpBarDetector = new HpBarDetector();
         _levelLabelDetector = new LevelLabelDetector();
         _spawnEventDetector = new SpawnEventDetector();
+        _spellPlacementDetector = new SpellPlacementDetector();
         _lastHpBars = HpBarDetectionResult.Empty;
         _lastSpawns = Array.Empty<SpawnEvent>();
         _lastClock = MatchClockState.Unknown;
-        _trainingSettings = new TrainingSettings(false, string.Empty, 4);
+        _trainingSettings = new TrainingSettings(false, string.Empty, 4, 1500, 1);
+        _spellSettings = new SpellDetectionSettings(true, new Roi01(0f, 0f, 1f, 1f), 25, 40, 3000, 4f, 4);
+        _pendingLogFrames = 0;
 
         _activeRoi = ActiveRoi.Hand;
         _handRoiRadio.Checked = true;
@@ -219,16 +227,18 @@ public partial class Form1 : Form
         if (_trainingSettings.Enabled && _datasetRecorder != null)
         {
             StateSnapshot state = _stateBuilder.Build(clockState, elixir, spawns, hand, now);
-            ActionSnapshot? action = _actionDetector.Update(hand, spawns, now);
-            if (action.HasValue)
+            ActionCommit? commit = _actionDetector.Update(hand, elixir, spawns, now);
+            if (commit.HasValue)
             {
-                var sample = new TrainingSample(DateTime.UtcNow, state, action.Value);
-                try
+                TrainingSample sample = new TrainingSample(DateTime.UtcNow, state, commit.Value.Action);
+                if (commit.Value.NeedsSpellPosition && _spellSettings.Enabled)
                 {
-                    _datasetRecorder.Append(sample);
+                    _pendingLogSample = sample;
+                    _pendingLogFrames = _spellSettings.SearchFrames;
                 }
-                catch
+                else
                 {
+                    AppendSampleSafe(sample);
                 }
             }
         }
@@ -246,6 +256,34 @@ public partial class Form1 : Form
 
         Bitmap? oldPrev = _prevFrame;
         _prevFrame = frame.Clone(new Rectangle(0, 0, frame.Width, frame.Height), PixelFormat.Format24bppRgb);
+
+        if (_pendingLogSample.HasValue && _pendingLogFrames > 0 && oldPrev != null)
+        {
+            if (_spellPlacementDetector.TryDetectLog(oldPrev, frame, _spellSettings, out SpellDetectionResult marker))
+            {
+                _lastSpellMarker = marker;
+                TrainingSample sample = _pendingLogSample.Value;
+                ActionSnapshot action = sample.Action with
+                {
+                    X01 = marker.X01,
+                    Y01 = marker.Y01,
+                    Lane = LaneFromX(marker.X01)
+                };
+                AppendSampleSafe(sample with { Action = action });
+                _pendingLogSample = null;
+                _pendingLogFrames = 0;
+            }
+            else
+            {
+                _pendingLogFrames--;
+                if (_pendingLogFrames <= 0)
+                {
+                    AppendSampleSafe(_pendingLogSample.Value);
+                    _pendingLogSample = null;
+                }
+            }
+        }
+
         oldPrev?.Dispose();
 
         _pictureBox.Invalidate();
@@ -286,6 +324,10 @@ public partial class Form1 : Form
         if (_settings.Debug.ShowLevelLabels)
         {
             DrawSpawnEvents(e.Graphics, displayRect, _lastSpawns);
+        }
+        if (_settings.Debug.ShowSpellMarkers && _lastSpellMarker.HasValue)
+        {
+            DrawSpellMarker(e.Graphics, displayRect, _lastSpellMarker.Value);
         }
 
         if (_dragging && _dragRect.Width > 1f && _dragRect.Height > 1f)
@@ -495,6 +537,15 @@ public partial class Form1 : Form
         }
     }
 
+    private static void DrawSpellMarker(Graphics g, RectangleF displayRect, SpellDetectionResult marker)
+    {
+        const float size = 10f;
+        using var pen = new Pen(Color.Gold, 2f);
+        float x = displayRect.Left + (marker.X01 * displayRect.Width);
+        float y = displayRect.Top + (marker.Y01 * displayRect.Height);
+        g.DrawEllipse(pen, x - (size / 2f), y - (size / 2f), size, size);
+    }
+
     private void ApplySettings(AppSettings settings)
     {
         _motionAnalyzer = new MotionAnalyzer(settings.Motion.ToCore());
@@ -503,8 +554,11 @@ public partial class Form1 : Form
         _suggestionEngine = new SuggestionEngine(settings.Suggestion.ToCore(), new CardSelector(settings.CardSelection));
         _cardRecognizer = TryCreateCardRecognizer(settings.Cards);
         _trainingSettings = settings.Training.ToCore();
+        _spellSettings = settings.Spells.ToCore();
         _stateBuilder = new StateBuilder(_trainingSettings.RecentSpawnSeconds);
-        _actionDetector = new ActionDetector();
+        _actionDetector = new ActionDetector(
+            pendingTimeoutMs: _trainingSettings.PendingTimeoutMs,
+            elixirCommitTolerance: _trainingSettings.ElixirCommitTolerance);
         _datasetRecorder = _trainingSettings.Enabled
             ? new DatasetRecorder(ResolveTrainingPath(_trainingSettings.OutputPath))
             : null;
@@ -514,6 +568,9 @@ public partial class Form1 : Form
         _lastHpBars = HpBarDetectionResult.Empty;
         _lastSpawns = Array.Empty<SpawnEvent>();
         _lastClock = MatchClockState.Unknown;
+        _lastSpellMarker = null;
+        _pendingLogSample = null;
+        _pendingLogFrames = 0;
     }
 
     private void SaveAndApplySettings()
@@ -625,4 +682,36 @@ public partial class Form1 : Form
 
         return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, outputPath));
     }
+
+    private void AppendSampleSafe(TrainingSample sample)
+    {
+        if (_datasetRecorder == null)
+        {
+            return;
+        }
+
+        try
+        {
+            _datasetRecorder.Append(sample);
+        }
+        catch
+        {
+        }
+    }
+
+    private static Lane LaneFromX(float x01)
+    {
+        if (x01 < 0.45f)
+        {
+            return Lane.Left;
+        }
+
+        if (x01 > 0.55f)
+        {
+            return Lane.Right;
+        }
+
+        return Lane.Center;
+    }
+
 }
