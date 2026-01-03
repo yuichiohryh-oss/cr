@@ -29,7 +29,7 @@ public partial class Form1 : Form
     private readonly FireballPlacementDetector _fireballPlacementDetector;
     private StateBuilder _stateBuilder;
     private ActionDetector _actionDetector;
-    private DatasetRecorder? _datasetRecorder;
+    private readonly DatasetRecorder _datasetRecorder;
     private IMotionAnalyzer _motionAnalyzer;
     private IElixirEstimator _elixirEstimator;
     private IMatchPhaseEstimator _matchPhaseEstimator;
@@ -41,12 +41,16 @@ public partial class Form1 : Form
     private readonly Label _settingsPathLabel;
     private readonly Label _cardsStatusLabel;
     private readonly Label _selectedWindowLabel;
+    private readonly Label _matchStatusLabel;
+    private readonly Label _matchFileLabel;
     private readonly RadioButton _motionRoiRadio;
     private readonly RadioButton _elixirRoiRadio;
     private readonly RadioButton _handRoiRadio;
     private readonly ComboBox _windowComboBox;
     private readonly Button _refreshWindowsButton;
     private readonly Button _selectWindowButton;
+    private readonly Button _startMatchButton;
+    private readonly Button _endMatchButton;
 
     private Bitmap? _prevFrame;
     private Suggestion _lastSuggestion;
@@ -60,6 +64,8 @@ public partial class Form1 : Form
     private PointF? _lastLogPoint;
     private PointF? _lastFireballPoint;
     private WindowInfo? _selectedWindow;
+    private readonly MatchSessionManager _matchSession;
+    private string? _currentMatchPath;
     private AppSettings _settings;
     private readonly string _settingsPath;
     private ActiveRoi _activeRoi;
@@ -121,6 +127,24 @@ public partial class Form1 : Form
             Padding = new Padding(8, 0, 0, 0)
         };
 
+        _matchStatusLabel = new Label
+        {
+            Dock = DockStyle.Top,
+            Height = 28,
+            Text = "Match: STOPPED",
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(8, 0, 0, 0)
+        };
+
+        _matchFileLabel = new Label
+        {
+            Dock = DockStyle.Top,
+            Height = 32,
+            Text = "Match file: (none)",
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(8, 0, 0, 0)
+        };
+
         var windowGroup = new GroupBox
         {
             Dock = DockStyle.Top,
@@ -152,6 +176,21 @@ public partial class Form1 : Form
 
         windowGroup.Controls.Add(windowButtons);
         windowGroup.Controls.Add(_windowComboBox);
+
+        var matchPanel = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            Height = 36,
+            FlowDirection = FlowDirection.LeftToRight,
+            Padding = new Padding(6, 6, 6, 6)
+        };
+
+        _startMatchButton = new Button { Text = "Start Match", AutoSize = true };
+        _endMatchButton = new Button { Text = "End Match", AutoSize = true, Enabled = false };
+        _startMatchButton.Click += (_, _) => StartMatch();
+        _endMatchButton.Click += (_, _) => EndMatch();
+        matchPanel.Controls.Add(_startMatchButton);
+        matchPanel.Controls.Add(_endMatchButton);
 
         var buttonPanel = new FlowLayoutPanel
         {
@@ -212,6 +251,9 @@ public partial class Form1 : Form
         settingsPanel.Controls.Add(windowGroup);
         settingsPanel.Controls.Add(buttonPanel);
         settingsPanel.Controls.Add(_selectedWindowLabel);
+        settingsPanel.Controls.Add(matchPanel);
+        settingsPanel.Controls.Add(_matchFileLabel);
+        settingsPanel.Controls.Add(_matchStatusLabel);
         settingsPanel.Controls.Add(_cardsStatusLabel);
         settingsPanel.Controls.Add(_settingsPathLabel);
 
@@ -228,7 +270,15 @@ public partial class Form1 : Form
         _lastHpBars = HpBarDetectionResult.Empty;
         _lastSpawns = Array.Empty<SpawnEvent>();
         _lastClock = MatchClockState.Unknown;
-        _trainingSettings = new TrainingSettings(false, string.Empty, 4, 1500, 1, 700);
+        _matchSession = new MatchSessionManager();
+        _trainingSettings = new TrainingSettings(
+            false,
+            "dataset",
+            "match_{yyyyMMdd_HHmmss}_{matchId}.jsonl",
+            4,
+            1500,
+            1,
+            700);
         _spellSettings = new SpellDetectionSettings(
             true,
             new Roi01(0f, 0f, 1f, 1f),
@@ -242,6 +292,8 @@ public partial class Form1 : Form
         _activeRoi = ActiveRoi.Hand;
         _handRoiRadio.Checked = true;
         ApplySettings(_settings);
+        RefreshWindowList();
+        _datasetRecorder = new DatasetRecorder();
         RefreshWindowList();
 
         _timer = new System.Windows.Forms.Timer
@@ -257,6 +309,7 @@ public partial class Form1 : Form
         _timer.Stop();
         _prevFrame?.Dispose();
         _pictureBox.Image?.Dispose();
+        _datasetRecorder.Close();
         base.OnFormClosing(e);
     }
 
@@ -281,6 +334,7 @@ public partial class Form1 : Form
             : new MotionResult(0, 0, false);
 
         DateTime now = DateTime.Now;
+        long frameIndex = _matchSession.IsRunning ? _matchSession.NextFrame() : 0;
         ElixirResult elixir = _elixirEstimator.Estimate(frame);
         MatchClockState clockState = _matchPhaseEstimator.Estimate(frame);
         HandState hand = _cardRecognizer != null ? _cardRecognizer.Recognize(frame) : HandState.Empty;
@@ -291,14 +345,20 @@ public partial class Form1 : Form
         IReadOnlyList<SpawnEvent> spawns = _spawnEventDetector.Update(labels, now);
         Suggestion suggestion = _suggestionEngine.Decide(motion, elixir, hand, hpBars.Enemy, spawns, clockState, now);
 
-        if (_trainingSettings.Enabled && _datasetRecorder != null)
+        if (_trainingSettings.Enabled && _matchSession.IsRunning && _datasetRecorder.IsOpen)
         {
             StateSnapshot state = _stateBuilder.Build(clockState, elixir, spawns, hand, now);
             var context = new FrameContext(now, spawns, _prevFrame, frame, _spellSettings);
             ActionSnapshot? action = _actionDetector.Update(hand, elixir, context);
             if (action.HasValue)
             {
-                TrainingSample sample = new TrainingSample(DateTime.UtcNow, state, action.Value);
+                TrainingSample sample = new TrainingSample(
+                    DateTime.UtcNow,
+                    state,
+                    action.Value,
+                    _matchSession.CurrentMatchId,
+                    _matchSession.ElapsedMs,
+                    frameIndex);
                 AppendSampleSafe(sample);
                 if (action.Value.X01.HasValue && action.Value.Y01.HasValue)
                 {
@@ -405,6 +465,28 @@ public partial class Form1 : Form
         {
             string clockText = $"Phase: {_lastClock.Phase} ({_lastClock.Confidence:0.00})";
             e.Graphics.DrawString(clockText, debugFont, debugBrush, displayRect.Left + 8f, displayRect.Top + 48f);
+        }
+
+        if (_settings.Debug.ShowStopwatch)
+        {
+            string status = _matchSession.IsRunning ? "RUNNING" : "STOPPED";
+            string idText = string.IsNullOrWhiteSpace(_matchSession.CurrentMatchId)
+                ? "-"
+                : _matchSession.CurrentMatchId[..Math.Min(8, _matchSession.CurrentMatchId.Length)];
+            string timeText = TimeSpan.FromMilliseconds(_matchSession.ElapsedMs).ToString(@"mm\:ss\.fff");
+            string fileText = string.IsNullOrWhiteSpace(_currentMatchPath)
+                ? "(none)"
+                : Path.GetFileName(_currentMatchPath);
+            float y = displayRect.Top + 68f;
+            e.Graphics.DrawString($"Match: {status}", debugFont, debugBrush, displayRect.Left + 8f, y);
+            y += 18f;
+            e.Graphics.DrawString($"MatchId: {idText}", debugFont, debugBrush, displayRect.Left + 8f, y);
+            y += 18f;
+            e.Graphics.DrawString($"File: {fileText}", debugFont, debugBrush, displayRect.Left + 8f, y);
+            y += 18f;
+            e.Graphics.DrawString($"Stopwatch: {timeText}", debugFont, debugBrush, displayRect.Left + 8f, y);
+            y += 18f;
+            e.Graphics.DrawString($"Frame: {_matchSession.FrameIndex}", debugFont, debugBrush, displayRect.Left + 8f, y);
         }
     }
 
@@ -617,9 +699,6 @@ public partial class Form1 : Form
             _trainingSettings.PendingTimeoutMs,
             _trainingSettings.ElixirCommitTolerance,
             resolvers);
-        _datasetRecorder = _trainingSettings.Enabled
-            ? new DatasetRecorder(ResolveTrainingPath(_trainingSettings.OutputPath))
-            : null;
         _lastSuggestion = Suggestion.None;
         _lastElixir = new ElixirResult(0f, 0);
         _lastHand = HandState.Empty;
@@ -628,6 +707,7 @@ public partial class Form1 : Form
         _lastClock = MatchClockState.Unknown;
         _lastLogPoint = null;
         _lastFireballPoint = null;
+        UpdateMatchUi();
     }
 
     private void SaveAndApplySettings()
@@ -757,24 +837,9 @@ public partial class Form1 : Form
         return null;
     }
 
-    private static string ResolveTrainingPath(string outputPath)
-    {
-        if (string.IsNullOrWhiteSpace(outputPath))
-        {
-            return Path.Combine(AppContext.BaseDirectory, "dataset", "output.jsonl");
-        }
-
-        if (Path.IsPathRooted(outputPath))
-        {
-            return outputPath;
-        }
-
-        return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, outputPath));
-    }
-
     private void AppendSampleSafe(TrainingSample sample)
     {
-        if (_datasetRecorder == null)
+        if (!_datasetRecorder.IsOpen)
         {
             return;
         }
@@ -786,6 +851,58 @@ public partial class Form1 : Form
         catch
         {
         }
+    }
+
+    private void StartMatch()
+    {
+        _matchSession.StartNewMatch();
+        if (_trainingSettings.Enabled)
+        {
+            _currentMatchPath = CreateMatchOutputPath(_trainingSettings, _matchSession);
+            _datasetRecorder.Open(_currentMatchPath);
+        }
+        else
+        {
+            _currentMatchPath = null;
+        }
+        UpdateMatchUi();
+    }
+
+    private void EndMatch()
+    {
+        if (!_matchSession.IsRunning)
+        {
+            return;
+        }
+
+        _matchSession.EndMatch();
+        _datasetRecorder.Close();
+        UpdateMatchUi();
+    }
+
+    private void UpdateMatchUi()
+    {
+        _matchStatusLabel.Text = _matchSession.IsRunning ? "Match: RUNNING" : "Match: STOPPED";
+        _matchFileLabel.Text = string.IsNullOrWhiteSpace(_currentMatchPath)
+            ? "Match file: (none)"
+            : $"Match file: {Path.GetFileName(_currentMatchPath)}";
+        _endMatchButton.Enabled = _matchSession.IsRunning;
+    }
+
+    private static string CreateMatchOutputPath(TrainingSettings settings, MatchSessionManager session)
+    {
+        string baseDir = string.IsNullOrWhiteSpace(settings.OutputDir)
+            ? Path.Combine(AppContext.BaseDirectory, "dataset")
+            : Path.IsPathRooted(settings.OutputDir)
+                ? settings.OutputDir
+                : Path.Combine(AppContext.BaseDirectory, settings.OutputDir);
+
+        Directory.CreateDirectory(baseDir);
+        string fileName = MatchFileNameFormatter.BuildFileName(
+            settings.FileNamePattern,
+            session.StartTimeLocal,
+            session.CurrentMatchId);
+        return Path.Combine(baseDir, fileName);
     }
 
 }
