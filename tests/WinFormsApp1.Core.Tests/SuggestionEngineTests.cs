@@ -17,8 +17,8 @@ public sealed class SuggestionEngineTests
         var hand = HandState.FromSlots(new[] { "skeletons", "hog", "fireball", "log" });
 
         var t0 = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        var s1 = engine.Decide(motion, elixir, hand, EnemyState.Empty, t0);
-        var s2 = engine.Decide(motion, elixir, hand, EnemyState.Empty, t0.AddMilliseconds(100));
+        var s1 = engine.Decide(motion, elixir, hand, EnemyState.Empty, Array.Empty<SpawnEvent>(), t0);
+        var s2 = engine.Decide(motion, elixir, hand, EnemyState.Empty, Array.Empty<SpawnEvent>(), t0.AddMilliseconds(100));
 
         Assert.False(s1.HasSuggestion);
         Assert.False(s2.HasSuggestion);
@@ -35,8 +35,8 @@ public sealed class SuggestionEngineTests
         var hand = HandState.FromSlots(new[] { "skeletons", "musketeer", "hog", "fireball" });
 
         var t0 = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        engine.Decide(motion, elixir, hand, EnemyState.Empty, t0);
-        var suggestion = engine.Decide(motion, elixir, hand, EnemyState.Empty, t0.AddMilliseconds(200));
+        engine.Decide(motion, elixir, hand, EnemyState.Empty, Array.Empty<SpawnEvent>(), t0);
+        var suggestion = engine.Decide(motion, elixir, hand, EnemyState.Empty, Array.Empty<SpawnEvent>(), t0.AddMilliseconds(200));
 
         Assert.True(suggestion.HasSuggestion);
         Assert.InRange(suggestion.X01, SuggestionPoints.RightDef.X - 0.001f, SuggestionPoints.RightDef.X + 0.001f);
@@ -56,9 +56,9 @@ public sealed class SuggestionEngineTests
         var hand = HandState.FromSlots(new[] { "skeletons", "hog", "fireball", "log" });
 
         var t0 = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        engine.Decide(motion, elixir, hand, EnemyState.Empty, t0);
-        var first = engine.Decide(motion, elixir, hand, EnemyState.Empty, t0.AddMilliseconds(200));
-        var second = engine.Decide(motion, elixir, hand, EnemyState.Empty, t0.AddMilliseconds(400));
+        engine.Decide(motion, elixir, hand, EnemyState.Empty, Array.Empty<SpawnEvent>(), t0);
+        var first = engine.Decide(motion, elixir, hand, EnemyState.Empty, Array.Empty<SpawnEvent>(), t0.AddMilliseconds(200));
+        var second = engine.Decide(motion, elixir, hand, EnemyState.Empty, Array.Empty<SpawnEvent>(), t0.AddMilliseconds(400));
 
         Assert.True(first.HasSuggestion);
         Assert.False(second.HasSuggestion);
@@ -75,10 +75,10 @@ public sealed class SuggestionEngineTests
         var hand = HandState.FromSlots(new[] { "skeletons", "hog", "fireball", "log" });
 
         var t0 = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        engine.Decide(motion, elixir, hand, EnemyState.Empty, t0);
-        var first = engine.Decide(motion, elixir, hand, EnemyState.Empty, t0.AddMilliseconds(200));
+        engine.Decide(motion, elixir, hand, EnemyState.Empty, Array.Empty<SpawnEvent>(), t0);
+        var first = engine.Decide(motion, elixir, hand, EnemyState.Empty, Array.Empty<SpawnEvent>(), t0.AddMilliseconds(200));
 
-        var afterCooldown = engine.Decide(motion, elixir, hand, EnemyState.Empty, t0.AddMilliseconds(900));
+        var afterCooldown = engine.Decide(motion, elixir, hand, EnemyState.Empty, Array.Empty<SpawnEvent>(), t0.AddMilliseconds(900));
 
         Assert.True(first.HasSuggestion);
         Assert.False(afterCooldown.HasSuggestion);
@@ -95,10 +95,29 @@ public sealed class SuggestionEngineTests
         var hand = HandState.FromSlots(new[] { "hog", "ice_golem", "log", "cannon" });
 
         var t0 = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        engine.Decide(motion, elixir, hand, EnemyState.Empty, t0);
-        var suggestion = engine.Decide(motion, elixir, hand, EnemyState.Empty, t0.AddMilliseconds(200));
+        engine.Decide(motion, elixir, hand, EnemyState.Empty, Array.Empty<SpawnEvent>(), t0);
+        var suggestion = engine.Decide(motion, elixir, hand, EnemyState.Empty, Array.Empty<SpawnEvent>(), t0.AddMilliseconds(200));
 
         Assert.False(suggestion.HasSuggestion);
+    }
+
+    [Fact]
+    public void EnemySpawnActsAsDefenseTrigger()
+    {
+        var settings = new SuggestionSettings(NeedElixir: 3, RequiredStreak: 2, Cooldown: TimeSpan.FromMilliseconds(700));
+        var engine = new SuggestionEngine(settings, new CardSelector(CreateSettings()));
+
+        var motion = new MotionResult(ThreatLeft: 0, ThreatRight: 0, DefenseTrigger: false);
+        var elixir = new ElixirResult(Filled01: 0.6f, ElixirInt: 6);
+        var hand = HandState.FromSlots(new[] { "skeletons", "hog", "fireball", "log" });
+
+        var t0 = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var spawn = new SpawnEvent(Team.Enemy, Lane.Left, 0.2f, 0.3f, t0, 0.8f);
+
+        engine.Decide(motion, elixir, hand, EnemyState.Empty, new[] { spawn }, t0);
+        var suggestion = engine.Decide(motion, elixir, hand, EnemyState.Empty, new[] { spawn }, t0.AddMilliseconds(200));
+
+        Assert.True(suggestion.HasSuggestion);
     }
 
     private static CardSelectionSettings CreateSettings()
