@@ -389,8 +389,8 @@ public partial class Form1 : Form
                         frameIndex);
                     if (saved.HasValue)
                     {
-                        string prevRel = Path.GetRelativePath(matchDir, Path.Combine(matchDir, saved.Value.PrevPath)).Replace('\\', '/');
-                        string currRel = Path.GetRelativePath(matchDir, Path.Combine(matchDir, saved.Value.CurrPath)).Replace('\\', '/');
+                        string prevRel = Path.GetRelativePath(matchDir, saved.Value.PrevPath).Replace('\\', '/');
+                        string currRel = Path.GetRelativePath(matchDir, saved.Value.CurrPath).Replace('\\', '/');
                         sample = sample with { PrevFramePath = prevRel, CurrFramePath = currRel };
                     }
                 }
