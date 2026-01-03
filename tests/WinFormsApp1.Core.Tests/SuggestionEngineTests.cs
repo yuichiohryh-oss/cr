@@ -10,7 +10,7 @@ public sealed class SuggestionEngineTests
     public void ElixirNotEnough_NoSuggestion()
     {
         var settings = new SuggestionSettings(NeedElixir: 3, RequiredStreak: 2, Cooldown: TimeSpan.FromMilliseconds(700));
-        var engine = new SuggestionEngine(settings, new CardSelector());
+        var engine = new SuggestionEngine(settings, new CardSelector(CreateSettings()));
 
         var motion = new MotionResult(ThreatLeft: 10, ThreatRight: 5, DefenseTrigger: true);
         var elixir = new ElixirResult(Filled01: 0.2f, ElixirInt: 2);
@@ -28,7 +28,7 @@ public sealed class SuggestionEngineTests
     public void RightThreat_PicksRightDefense()
     {
         var settings = new SuggestionSettings(NeedElixir: 3, RequiredStreak: 2, Cooldown: TimeSpan.FromMilliseconds(700));
-        var engine = new SuggestionEngine(settings, new CardSelector());
+        var engine = new SuggestionEngine(settings, new CardSelector(CreateSettings()));
 
         var motion = new MotionResult(ThreatLeft: 5, ThreatRight: 20, DefenseTrigger: true);
         var elixir = new ElixirResult(Filled01: 0.5f, ElixirInt: 5);
@@ -49,7 +49,7 @@ public sealed class SuggestionEngineTests
     public void CooldownBlocksRapidRepeat()
     {
         var settings = new SuggestionSettings(NeedElixir: 3, RequiredStreak: 2, Cooldown: TimeSpan.FromMilliseconds(700));
-        var engine = new SuggestionEngine(settings, new CardSelector());
+        var engine = new SuggestionEngine(settings, new CardSelector(CreateSettings()));
 
         var motion = new MotionResult(ThreatLeft: 12, ThreatRight: 3, DefenseTrigger: true);
         var elixir = new ElixirResult(Filled01: 0.6f, ElixirInt: 6);
@@ -68,7 +68,7 @@ public sealed class SuggestionEngineTests
     public void NoSelectableCard_NoSuggestion()
     {
         var settings = new SuggestionSettings(NeedElixir: 1, RequiredStreak: 2, Cooldown: TimeSpan.FromMilliseconds(700));
-        var engine = new SuggestionEngine(settings, new CardSelector());
+        var engine = new SuggestionEngine(settings, new CardSelector(CreateSettings()));
 
         var motion = new MotionResult(ThreatLeft: 20, ThreatRight: 25, DefenseTrigger: true);
         var elixir = new ElixirResult(Filled01: 0.1f, ElixirInt: 1);
@@ -79,5 +79,28 @@ public sealed class SuggestionEngineTests
         var suggestion = engine.Decide(motion, elixir, hand, t0.AddMilliseconds(200));
 
         Assert.False(suggestion.HasSuggestion);
+    }
+
+    private static CardSelectionSettings CreateSettings()
+    {
+        return new CardSelectionSettings
+        {
+            Cards = new[]
+            {
+                new CardDefinition("hog", 4, new[] { "WinCondition" }),
+                new CardDefinition("musketeer", 4, new[] { "Defensive" }),
+                new CardDefinition("cannon", 3, new[] { "Building", "Defensive" }),
+                new CardDefinition("fireball", 4, new[] { "Spell" }),
+                new CardDefinition("ice_spirit", 1, new[] { "Defensive", "Cycle" }),
+                new CardDefinition("skeletons", 1, new[] { "Defensive", "Cycle" }),
+                new CardDefinition("ice_golem", 2, new[] { "Defensive" }),
+                new CardDefinition("log", 2, new[] { "Spell" })
+            },
+            ExcludedCardIds = new string[0],
+            DefensivePriorityCardIds = new[] { "musketeer", "ice_golem", "skeletons", "ice_spirit", "cannon" },
+            StrongThreatThreshold = 50,
+            ExcludeSpells = true,
+            ExcludeBuildings = true
+        };
     }
 }
