@@ -24,7 +24,9 @@ public readonly record struct TrainingSample(
     ActionSnapshot Action,
     string MatchId = "",
     long MatchElapsedMs = 0,
-    long FrameIndex = 0);
+    long FrameIndex = 0,
+    string PrevFramePath = "",
+    string CurrFramePath = "");
 
 public readonly record struct TrainingSettings(
     bool Enabled,
@@ -33,7 +35,12 @@ public readonly record struct TrainingSettings(
     int RecentSpawnSeconds,
     int PendingTimeoutMs,
     int ElixirCommitTolerance,
-    int UnitCommitMatchWindowMs
+    int UnitCommitMatchWindowMs,
+    bool SaveFramesOnRecord,
+    string FramesDirName,
+    string FrameImageFormat,
+    int FrameJpegQuality,
+    int MaxSavedFrameWidth
 );
 
 public readonly record struct PendingAction(

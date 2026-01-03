@@ -70,6 +70,11 @@ public sealed class AppSettings
                 Enabled = false,
                 OutputDir = "dataset",
                 FileNamePattern = "match_{yyyyMMdd_HHmmss}_{matchId}.jsonl",
+                SaveFramesOnRecord = true,
+                FramesDirName = "frames",
+                FrameImageFormat = "png",
+                FrameJpegQuality = 90,
+                MaxSavedFrameWidth = 0,
                 RecentSpawnSeconds = 4,
                 PendingTimeoutMs = 1500,
                 ElixirCommitTolerance = 1,
@@ -101,7 +106,8 @@ public sealed class AppSettings
                 LevelLabelRoi = new LevelLabelRoiSettings { X = 0.05f, Y = 0.08f, W = 0.90f, H = 0.75f },
                 ShowClockPhase = true,
                 ShowSpellMarkers = true,
-                ShowStopwatch = true
+                ShowStopwatch = true,
+                ShowLastAction = true
             }
         };
     }
@@ -221,6 +227,11 @@ public sealed class TrainingSettingsDto
     public bool Enabled { get; set; }
     public string OutputDir { get; set; } = string.Empty;
     public string FileNamePattern { get; set; } = string.Empty;
+    public bool SaveFramesOnRecord { get; set; }
+    public string FramesDirName { get; set; } = string.Empty;
+    public string FrameImageFormat { get; set; } = string.Empty;
+    public int FrameJpegQuality { get; set; }
+    public int MaxSavedFrameWidth { get; set; }
     public int RecentSpawnSeconds { get; set; }
     public int PendingTimeoutMs { get; set; }
     public int ElixirCommitTolerance { get; set; }
@@ -235,7 +246,12 @@ public sealed class TrainingSettingsDto
             RecentSpawnSeconds,
             PendingTimeoutMs,
             ElixirCommitTolerance,
-            UnitCommitMatchWindowMs);
+            UnitCommitMatchWindowMs,
+            SaveFramesOnRecord,
+            FramesDirName,
+            FrameImageFormat,
+            FrameJpegQuality,
+            MaxSavedFrameWidth);
     }
 
     public override string ToString() => "Training";
@@ -296,6 +312,7 @@ public sealed class DebugSettingsDto
     public bool ShowClockPhase { get; set; }
     public bool ShowSpellMarkers { get; set; }
     public bool ShowStopwatch { get; set; }
+    public bool ShowLastAction { get; set; }
 
     public override string ToString() => "Debug";
 }

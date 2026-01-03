@@ -30,6 +30,7 @@ public partial class Form1 : Form
     private StateBuilder _stateBuilder;
     private ActionDetector _actionDetector;
     private readonly DatasetRecorder _datasetRecorder;
+    private readonly FrameSaver _frameSaver;
     private IMotionAnalyzer _motionAnalyzer;
     private IElixirEstimator _elixirEstimator;
     private IMatchPhaseEstimator _matchPhaseEstimator;
@@ -66,6 +67,12 @@ public partial class Form1 : Form
     private WindowInfo? _selectedWindow;
     private readonly MatchSessionManager _matchSession;
     private string? _currentMatchPath;
+    private ActionSnapshot? _lastRecordedAction;
+    private string _lastRecordedMatchId = string.Empty;
+    private long _lastRecordedElapsedMs;
+    private long _lastRecordedFrameIndex;
+    private string? _lastRecordedPrevPath;
+    private string? _lastRecordedCurrPath;
     private AppSettings _settings;
     private readonly string _settingsPath;
     private ActiveRoi _activeRoi;
@@ -267,6 +274,7 @@ public partial class Form1 : Form
         _spawnEventDetector = new SpawnEventDetector();
         _spellPlacementDetector = new SpellPlacementDetector();
         _fireballPlacementDetector = new FireballPlacementDetector();
+        _frameSaver = new FrameSaver();
         _lastHpBars = HpBarDetectionResult.Empty;
         _lastSpawns = Array.Empty<SpawnEvent>();
         _lastClock = MatchClockState.Unknown;
@@ -278,7 +286,12 @@ public partial class Form1 : Form
             4,
             1500,
             1,
-            700);
+            700,
+            true,
+            "frames",
+            "png",
+            90,
+            0);
         _spellSettings = new SpellDetectionSettings(
             true,
             new Roi01(0f, 0f, 1f, 1f),
@@ -359,7 +372,35 @@ public partial class Form1 : Form
                     _matchSession.CurrentMatchId,
                     _matchSession.ElapsedMs,
                     frameIndex);
+                if (_trainingSettings.SaveFramesOnRecord && _currentMatchPath != null && _prevFrame != null)
+                {
+                    string matchDir = Path.GetDirectoryName(_currentMatchPath) ?? AppContext.BaseDirectory;
+                    using Bitmap prevClone = (Bitmap)_prevFrame.Clone();
+                    using Bitmap currClone = (Bitmap)frame.Clone();
+                    var saved = _frameSaver.SaveFrames(
+                        prevClone,
+                        currClone,
+                        matchDir,
+                        _trainingSettings.FramesDirName,
+                        _trainingSettings.FrameImageFormat,
+                        _trainingSettings.FrameJpegQuality,
+                        _trainingSettings.MaxSavedFrameWidth,
+                        _matchSession.ElapsedMs,
+                        frameIndex);
+                    if (saved.HasValue)
+                    {
+                        string prevRel = Path.GetRelativePath(matchDir, saved.Value.PrevPath).Replace('\\', '/');
+                        string currRel = Path.GetRelativePath(matchDir, saved.Value.CurrPath).Replace('\\', '/');
+                        sample = sample with { PrevFramePath = prevRel, CurrFramePath = currRel };
+                    }
+                }
                 AppendSampleSafe(sample);
+                _lastRecordedAction = sample.Action;
+                _lastRecordedMatchId = sample.MatchId;
+                _lastRecordedElapsedMs = sample.MatchElapsedMs;
+                _lastRecordedFrameIndex = sample.FrameIndex;
+                _lastRecordedPrevPath = string.IsNullOrWhiteSpace(sample.PrevFramePath) ? null : sample.PrevFramePath;
+                _lastRecordedCurrPath = string.IsNullOrWhiteSpace(sample.CurrFramePath) ? null : sample.CurrFramePath;
                 if (action.Value.X01.HasValue && action.Value.Y01.HasValue)
                 {
                     if (string.Equals(action.Value.CardId, "log", StringComparison.OrdinalIgnoreCase))
@@ -487,6 +528,33 @@ public partial class Form1 : Form
             e.Graphics.DrawString($"Stopwatch: {timeText}", debugFont, debugBrush, displayRect.Left + 8f, y);
             y += 18f;
             e.Graphics.DrawString($"Frame: {_matchSession.FrameIndex}", debugFont, debugBrush, displayRect.Left + 8f, y);
+        }
+
+        if (_settings.Debug.ShowLastAction && _lastRecordedAction.HasValue)
+        {
+            var action = _lastRecordedAction.Value;
+            string card = action.CardId;
+            string type = GetActionType(action.CardId);
+            string lane = action.Lane.ToString();
+            string pos = action.X01.HasValue && action.Y01.HasValue
+                ? $"{action.X01:0.00},{action.Y01:0.00}"
+                : "n/a";
+            string idText = string.IsNullOrWhiteSpace(_lastRecordedMatchId)
+                ? "-"
+                : _lastRecordedMatchId[..Math.Min(8, _lastRecordedMatchId.Length)];
+            float y = displayRect.Top + 158f;
+            e.Graphics.DrawString($"LastAction: {card} type={type} lane={lane} pos={pos}", debugFont, debugBrush, displayRect.Left + 8f, y);
+            y += 18f;
+            e.Graphics.DrawString($"MatchId: {idText} t={_lastRecordedElapsedMs}ms frame={_lastRecordedFrameIndex}", debugFont, debugBrush, displayRect.Left + 8f, y);
+            y += 18f;
+            if (_lastRecordedPrevPath != null || _lastRecordedCurrPath != null)
+            {
+                string prevText = _lastRecordedPrevPath ?? "-";
+                string currText = _lastRecordedCurrPath ?? "-";
+                e.Graphics.DrawString($"Prev: {prevText}", debugFont, debugBrush, displayRect.Left + 8f, y);
+                y += 18f;
+                e.Graphics.DrawString($"Curr: {currText}", debugFont, debugBrush, displayRect.Left + 8f, y);
+            }
         }
     }
 
@@ -707,6 +775,12 @@ public partial class Form1 : Form
         _lastClock = MatchClockState.Unknown;
         _lastLogPoint = null;
         _lastFireballPoint = null;
+        _lastRecordedAction = null;
+        _lastRecordedMatchId = string.Empty;
+        _lastRecordedElapsedMs = 0;
+        _lastRecordedFrameIndex = 0;
+        _lastRecordedPrevPath = null;
+        _lastRecordedCurrPath = null;
         UpdateMatchUi();
     }
 
@@ -897,12 +971,24 @@ public partial class Form1 : Form
                 ? settings.OutputDir
                 : Path.Combine(AppContext.BaseDirectory, settings.OutputDir);
 
-        Directory.CreateDirectory(baseDir);
+        string matchDir = Path.Combine(baseDir, session.CurrentMatchId);
+        Directory.CreateDirectory(matchDir);
         string fileName = MatchFileNameFormatter.BuildFileName(
             settings.FileNamePattern,
             session.StartTimeLocal,
             session.CurrentMatchId);
-        return Path.Combine(baseDir, fileName);
+        return Path.Combine(matchDir, fileName);
+    }
+
+    private static string GetActionType(string cardId)
+    {
+        if (string.Equals(cardId, "log", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(cardId, "fireball", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Spell";
+        }
+
+        return "Unit";
     }
 
 }
