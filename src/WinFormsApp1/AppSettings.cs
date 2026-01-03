@@ -281,7 +281,6 @@ public sealed class FireballSettingsDto
 
     public override string ToString() => "Fireball";
 }
-
 [TypeConverter(typeof(ExpandableObjectConverter))]
 public sealed class DebugSettingsDto
 {
