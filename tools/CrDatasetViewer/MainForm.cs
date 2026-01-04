@@ -18,6 +18,7 @@ public sealed class MainForm : Form
     private readonly PictureBox _currBox;
     private readonly Label _prevLabel;
     private readonly Label _currLabel;
+    private readonly Label _helpLabel;
     private readonly Label _statusLabel;
     private readonly Button _openRootButton;
     private readonly Button _openMatchDirButton;
@@ -96,11 +97,18 @@ public sealed class MainForm : Form
             Padding = new Padding(6)
         };
 
-        _openRootButton = new Button { Text = "Open Dataset Root" };
-        _openMatchDirButton = new Button { Text = "Open Match Dir" };
-        _openJsonlButton = new Button { Text = "Open JSONL" };
+        _openRootButton = new Button { Text = "Open Dataset Root..." };
+        _openMatchDirButton = new Button { Text = "Open Match Folder..." };
+        _openJsonlButton = new Button { Text = "Open JSONL File..." };
         _reloadButton = new Button { Text = "Reload" };
-        _statusLabel = new Label { AutoSize = true, Padding = new Padding(4, 6, 4, 0) };
+        _helpLabel = new Label
+        {
+            AutoSize = true,
+            MaximumSize = new Size(520, 0),
+            Padding = new Padding(6, 6, 6, 0),
+            Text = "Tip: Open a Match Folder (dataset/<matchId>) for the fastest review."
+        };
+        _statusLabel = new Label { AutoSize = true, Padding = new Padding(4, 6, 4, 0), Text = "Opened: (none)" };
 
         _openRootButton.Click += (_, _) => SelectDatasetRoot();
         _openMatchDirButton.Click += (_, _) => SelectMatchDir();
@@ -117,6 +125,7 @@ public sealed class MainForm : Form
         controlPanel.Controls.Add(_openMatchDirButton);
         controlPanel.Controls.Add(_openJsonlButton);
         controlPanel.Controls.Add(_reloadButton);
+        controlPanel.Controls.Add(_helpLabel);
         controlPanel.Controls.Add(_statusLabel);
 
         var leftPanel = new Panel { Dock = DockStyle.Fill };
