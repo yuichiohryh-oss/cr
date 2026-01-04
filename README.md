@@ -126,3 +126,19 @@ dotnet run --project tools/CrDatasetInspector -- dataset --jsonl-glob "*.jsonl" 
 - frame_index / match_elapsed_ms の単調増加
 - prev/curr の相対パスと frames/ 配下の存在確認
 - (optional) 画像ロードによる破損検知 (--verify-image-load)
+
+## Dataset Viewer (GUI)
+
+JSONL と prev/curr フレームを目視確認する WinForms ビューアです。
+
+起動例:
+
+```
+dotnet run --project tools/CrDatasetViewer
+```
+
+できること:
+- datasetRoot / matchDir / jsonl を選択して読み込み
+- DataGridView で行一覧表示
+- prev/curr 画像を並べて表示 (オーバーレイ付き)
+- bad_rows.jsonl があれば行ハイライト + N/P でジャンプ
