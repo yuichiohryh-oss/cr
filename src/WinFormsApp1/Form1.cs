@@ -389,8 +389,14 @@ public partial class Form1 : Form
                         frameIndex);
                     if (saved.HasValue)
                     {
-                        string prevRel = Path.GetRelativePath(matchDir, saved.Value.PrevPath).Replace('\\', '/');
-                        string currRel = Path.GetRelativePath(matchDir, saved.Value.CurrPath).Replace('\\', '/');
+                        string prevRel = FramePathNormalizer.NormalizeToFramesRelative(
+                            matchDir,
+                            saved.Value.PrevPath,
+                            _trainingSettings.FramesDirName);
+                        string currRel = FramePathNormalizer.NormalizeToFramesRelative(
+                            matchDir,
+                            saved.Value.CurrPath,
+                            _trainingSettings.FramesDirName);
                         sample = sample with { PrevFramePath = prevRel, CurrFramePath = currRel };
                     }
                 }
