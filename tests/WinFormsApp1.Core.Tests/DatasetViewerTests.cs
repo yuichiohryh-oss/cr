@@ -154,6 +154,18 @@ public sealed class DatasetViewerTests
         }
     }
 
+    [Theory]
+    [InlineData(0, "0:00.000")]
+    [InlineData(16833, "0:16.833")]
+    [InlineData(62345, "1:02.345")]
+    [InlineData(157901, "2:37.901")]
+    public void FormatsElapsedStopwatch(long elapsedMs, string expected)
+    {
+        string formatted = ViewerHelpers.FormatElapsedStopwatch(elapsedMs);
+
+        Assert.Equal(expected, formatted);
+    }
+
     private static string Normalize(string path)
     {
         return path.Replace('\\', '/');

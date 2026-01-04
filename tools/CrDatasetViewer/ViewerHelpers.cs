@@ -16,6 +16,20 @@ public enum OpenTargetKind
 
 public static class ViewerHelpers
 {
+    public static string FormatElapsedStopwatch(long elapsedMs)
+    {
+        if (elapsedMs < 0)
+        {
+            elapsedMs = 0;
+        }
+
+        TimeSpan span = TimeSpan.FromMilliseconds(elapsedMs);
+        long minutes = (long)span.TotalMinutes;
+        int seconds = span.Seconds;
+        int millis = span.Milliseconds;
+        return $"{minutes}:{seconds:00}.{millis:000}";
+    }
+
     public static OpenTargetKind DetectOpenTarget(string path)
     {
         if (string.IsNullOrWhiteSpace(path))

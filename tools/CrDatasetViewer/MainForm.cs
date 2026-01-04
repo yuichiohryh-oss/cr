@@ -94,15 +94,10 @@ public sealed class MainForm : Form
         };
         _grid.SelectionChanged += (_, _) => UpdateImagesFromSelection();
 
-        _grid.Columns.Add(CreateTextColumn("LineNumber", "Line"));
-        _grid.Columns.Add(CreateTextColumn("FrameIndex", "Frame"));
-        _grid.Columns.Add(CreateTextColumn("MatchElapsedMs", "Elapsed(ms)"));
-        _grid.Columns.Add(CreateTextColumn("MatchId", "Match"));
-        _grid.Columns.Add(CreateTextColumn("ActionSummary", "Action"));
-        _grid.Columns.Add(CreateTextColumn("PrevFramePath", "Prev"));
-        _grid.Columns.Add(CreateTextColumn("CurrFramePath", "Curr"));
-        _grid.Columns.Add(CreateTextColumn("IsBad", "Bad"));
-        _grid.Columns.Add(CreateTextColumn("BadReason", "Reason"));
+        ConfigureGridColumns();
+
+        _grid.CellFormatting += Grid_CellFormatting;
+        _grid.CellToolTipTextNeeded += Grid_CellToolTipTextNeeded;
 
         leftSplit.Panel1.Controls.Add(_jsonlList);
         leftSplit.Panel2.Controls.Add(_grid);
@@ -204,6 +199,62 @@ public sealed class MainForm : Form
             HeaderText = header,
             AutoSizeMode = DataGridViewAutoSizeColumnMode.DisplayedCells
         };
+    }
+
+    private void ConfigureGridColumns()
+    {
+        _grid.Columns.Clear();
+        _grid.Columns.Add(CreateTextColumn("LineNumber", "Line"));
+        _grid.Columns.Add(CreateTextColumn("FrameIndex", "Frame"));
+        _grid.Columns.Add(CreateTextColumn("MatchElapsedMs", "Elapsed"));
+        _grid.Columns.Add(CreateTextColumn("MatchId", "Match"));
+        _grid.Columns.Add(CreateTextColumn("ActionSummary", "Action"));
+        _grid.Columns.Add(CreateTextColumn("PrevFramePath", "Prev"));
+        _grid.Columns.Add(CreateTextColumn("CurrFramePath", "Curr"));
+        _grid.Columns.Add(CreateTextColumn("IsBad", "Bad"));
+        _grid.Columns.Add(CreateTextColumn("BadReason", "Reason"));
+    }
+
+    private void Grid_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
+    {
+        if (e.RowIndex < 0 || e.ColumnIndex < 0)
+        {
+            return;
+        }
+
+        var column = _grid.Columns[e.ColumnIndex];
+        if (!string.Equals(column.DataPropertyName, "MatchElapsedMs", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (e.Value == null)
+        {
+            return;
+        }
+
+        long elapsedMs = e.Value is long value ? value : Convert.ToInt64(e.Value);
+        e.Value = ViewerHelpers.FormatElapsedStopwatch(elapsedMs);
+        e.FormattingApplied = true;
+    }
+
+    private void Grid_CellToolTipTextNeeded(object? sender, DataGridViewCellToolTipTextNeededEventArgs e)
+    {
+        if (e.RowIndex < 0 || e.ColumnIndex < 0)
+        {
+            return;
+        }
+
+        var column = _grid.Columns[e.ColumnIndex];
+        if (!string.Equals(column.DataPropertyName, "MatchElapsedMs", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (_grid.Rows[e.RowIndex].DataBoundItem is ViewerRow row)
+        {
+            e.ToolTipText = $"{row.MatchElapsedMs} ms";
+        }
     }
 
     private void SelectDatasetRoot()
