@@ -1,12 +1,56 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 
 namespace CrDatasetViewer;
 
+public enum OpenTargetKind
+{
+    Unknown = 0,
+    DatasetRoot,
+    MatchFolder,
+    JsonlFile
+}
+
 public static class ViewerHelpers
 {
+    public static OpenTargetKind DetectOpenTarget(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return OpenTargetKind.Unknown;
+        }
+
+        if (File.Exists(path))
+        {
+            return Path.GetExtension(path).Equals(".jsonl", StringComparison.OrdinalIgnoreCase)
+                ? OpenTargetKind.JsonlFile
+                : OpenTargetKind.Unknown;
+        }
+
+        if (!Directory.Exists(path))
+        {
+            return OpenTargetKind.Unknown;
+        }
+
+        if (Directory.EnumerateFiles(path, "*.jsonl", SearchOption.TopDirectoryOnly).Any())
+        {
+            return OpenTargetKind.MatchFolder;
+        }
+
+        foreach (string dir in Directory.EnumerateDirectories(path))
+        {
+            if (Directory.EnumerateFiles(dir, "*.jsonl", SearchOption.TopDirectoryOnly).Any())
+            {
+                return OpenTargetKind.DatasetRoot;
+            }
+        }
+
+        return OpenTargetKind.Unknown;
+    }
+
     public static string NormalizeRelativePath(string path)
     {
         return string.IsNullOrWhiteSpace(path) ? string.Empty : path.Replace('\\', '/');
