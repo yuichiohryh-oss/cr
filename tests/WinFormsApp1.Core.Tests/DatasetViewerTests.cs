@@ -54,6 +54,20 @@ public sealed class DatasetViewerTests
         Assert.Equal("frames/b.png", record.CurrFramePath);
     }
 
+    [Fact]
+    public void ParsesCamelCaseKeys()
+    {
+        string json = "{\"matchId\":\"m2\",\"matchElapsedMs\":250,\"frameIndex\":9,\"prevFramePath\":\"frames/p.png\",\"currFramePath\":\"frames/c.png\"}";
+        bool ok = ViewerHelpers.TryParseLine(json, out ViewerRecord record, out _);
+
+        Assert.True(ok);
+        Assert.Equal("m2", record.MatchId);
+        Assert.Equal(250, record.MatchElapsedMs);
+        Assert.Equal(9, record.FrameIndex);
+        Assert.Equal("frames/p.png", record.PrevFramePath);
+        Assert.Equal("frames/c.png", record.CurrFramePath);
+    }
+
     private static string Normalize(string path)
     {
         return path.Replace('\\', '/');
