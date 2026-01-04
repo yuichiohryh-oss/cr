@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace WinFormsApp1.Core;
 
@@ -26,7 +27,8 @@ public readonly record struct TrainingSample(
     long MatchElapsedMs = 0,
     long FrameIndex = 0,
     string PrevFramePath = "",
-    string CurrFramePath = "");
+    string CurrFramePath = "",
+    [property: JsonPropertyName("frame_crop")] FrameCrop FrameCrop = default);
 
 public readonly record struct TrainingSettings(
     bool Enabled,
@@ -40,8 +42,28 @@ public readonly record struct TrainingSettings(
     string FramesDirName,
     string FrameImageFormat,
     int FrameJpegQuality,
-    int MaxSavedFrameWidth
-);
+    int MaxSavedFrameWidth,
+    bool TrimSavedFrames,
+    string TrimSavedFramesMode,
+    int TrimBlackThreshold,
+    int TrimBlackSampleStride,
+    float TrimBlackMinRatio,
+    float TrimMaxRatio,
+    int TrimMinContentWidth
+)
+{
+    public FrameTrimSettings ToTrimSettings()
+    {
+        return new FrameTrimSettings(
+            TrimSavedFrames,
+            TrimSavedFramesMode,
+            TrimBlackThreshold,
+            TrimBlackSampleStride,
+            TrimBlackMinRatio,
+            TrimMaxRatio,
+            TrimMinContentWidth);
+    }
+}
 
 public readonly record struct PendingAction(
     string CardId,

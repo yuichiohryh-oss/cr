@@ -291,7 +291,14 @@ public partial class Form1 : Form
             "frames",
             "png",
             90,
-            0);
+            0,
+            true,
+            "LeftRight",
+            16,
+            8,
+            0.90f,
+            0.20f,
+            200);
         _spellSettings = new SpellDetectionSettings(
             true,
             new Roi01(0f, 0f, 1f, 1f),
@@ -377,7 +384,8 @@ public partial class Form1 : Form
                     string matchDir = Path.GetDirectoryName(_currentMatchPath) ?? AppContext.BaseDirectory;
                     using Bitmap prevClone = (Bitmap)_prevFrame.Clone();
                     using Bitmap currClone = (Bitmap)frame.Clone();
-                    var saved = _frameSaver.SaveFrames(
+                    FrameTrimSettings trimSettings = _trainingSettings.ToTrimSettings();
+                    var saved = _frameSaver.SaveFramesWithCrop(
                         prevClone,
                         currClone,
                         matchDir,
@@ -386,7 +394,8 @@ public partial class Form1 : Form
                         _trainingSettings.FrameJpegQuality,
                         _trainingSettings.MaxSavedFrameWidth,
                         _matchSession.ElapsedMs,
-                        frameIndex);
+                        frameIndex,
+                        trimSettings);
                     if (saved.HasValue)
                     {
                         string prevRel = FramePathNormalizer.NormalizeToFramesRelative(
@@ -397,7 +406,12 @@ public partial class Form1 : Form
                             matchDir,
                             saved.Value.CurrPath,
                             _trainingSettings.FramesDirName);
-                        sample = sample with { PrevFramePath = prevRel, CurrFramePath = currRel };
+                        sample = sample with
+                        {
+                            PrevFramePath = prevRel,
+                            CurrFramePath = currRel,
+                            FrameCrop = saved.Value.FrameCrop
+                        };
                     }
                 }
                 AppendSampleSafe(sample);
