@@ -29,6 +29,8 @@ public sealed class MainForm : Form
     private BindingList<ViewerRow> _rows = new();
     private List<int> _badRowIndexes = new();
     private Dictionary<int, BadRowInfo> _badRowsByLine = new();
+    private Dictionary<string, BadRowInfo> _badRowsByMatchLine = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, BadRowInfo> _badRowsByMatchFrame = new(StringComparer.OrdinalIgnoreCase);
     private Image? _prevImage;
     private Image? _currImage;
 
@@ -237,7 +239,7 @@ public sealed class MainForm : Form
     {
         _currentJsonl = path;
         _rows = new BindingList<ViewerRow>();
-        _badRowsByLine = LoadBadRows(path);
+        LoadBadRows(path);
         _badRowIndexes = new List<int>();
 
         int lineNumber = 0;
@@ -275,6 +277,30 @@ public sealed class MainForm : Form
         {
             row.IsBad = true;
             row.BadReason = info.Reason;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(row.MatchId))
+        {
+            return;
+        }
+
+        string lineKey = BuildKey(row.MatchId, lineNumber);
+        if (_badRowsByMatchLine.TryGetValue(lineKey, out info))
+        {
+            row.IsBad = true;
+            row.BadReason = info.Reason;
+            return;
+        }
+
+        if (row.FrameIndex >= 0)
+        {
+            string frameKey = BuildKey(row.MatchId, row.FrameIndex);
+            if (_badRowsByMatchFrame.TryGetValue(frameKey, out info))
+            {
+                row.IsBad = true;
+                row.BadReason = info.Reason;
+            }
         }
     }
 
@@ -294,23 +320,26 @@ public sealed class MainForm : Form
         }
     }
 
-    private Dictionary<int, BadRowInfo> LoadBadRows(string jsonlPath)
+    private void LoadBadRows(string jsonlPath)
     {
-        var map = new Dictionary<int, BadRowInfo>();
+        _badRowsByLine = new Dictionary<int, BadRowInfo>();
+        _badRowsByMatchLine = new Dictionary<string, BadRowInfo>(StringComparer.OrdinalIgnoreCase);
+        _badRowsByMatchFrame = new Dictionary<string, BadRowInfo>(StringComparer.OrdinalIgnoreCase);
+
         string? matchDir = Path.GetDirectoryName(jsonlPath);
         string? datasetRoot = _datasetRoot ?? (matchDir != null ? Directory.GetParent(matchDir)?.FullName : null);
         if (datasetRoot == null)
         {
-            return map;
+            return;
         }
 
         string badRowsPath = Path.Combine(datasetRoot, "_inspect", "bad_rows.jsonl");
         if (!File.Exists(badRowsPath))
         {
-            return map;
+            return;
         }
 
-        string jsonlFull = Path.GetFullPath(jsonlPath);
+        string jsonlFull = NormalizePathForCompare(jsonlPath, datasetRoot);
         foreach (string line in File.ReadLines(badRowsPath))
         {
             if (string.IsNullOrWhiteSpace(line))
@@ -323,34 +352,69 @@ public sealed class MainForm : Form
                 continue;
             }
 
-            if (!IsSameJsonl(info.JsonlFile, jsonlFull, datasetRoot))
+            bool sameJsonl = IsSameJsonl(info.JsonlFile, jsonlFull, datasetRoot);
+            if (sameJsonl && !_badRowsByLine.ContainsKey(info.LineNumber))
             {
-                continue;
+                _badRowsByLine[info.LineNumber] = info;
             }
 
-            if (!map.ContainsKey(info.LineNumber))
+            if (ViewerHelpers.TryParseLine(info.RawLine, out ViewerRecord record, out _))
             {
-                map[info.LineNumber] = info;
+                if (!string.IsNullOrWhiteSpace(record.MatchId))
+                {
+                    if (info.LineNumber > 0)
+                    {
+                        string lineKey = BuildKey(record.MatchId, info.LineNumber);
+                        if (!_badRowsByMatchLine.ContainsKey(lineKey))
+                        {
+                            _badRowsByMatchLine[lineKey] = info;
+                        }
+                    }
+
+                    if (record.FrameIndex >= 0)
+                    {
+                        string frameKey = BuildKey(record.MatchId, record.FrameIndex);
+                        if (!_badRowsByMatchFrame.ContainsKey(frameKey))
+                        {
+                            _badRowsByMatchFrame[frameKey] = info;
+                        }
+                    }
+                }
             }
         }
-
-        return map;
     }
 
     private static bool IsSameJsonl(string jsonlFromBad, string currentJsonlFull, string datasetRoot)
     {
-        if (string.IsNullOrWhiteSpace(jsonlFromBad))
+        string candidate = NormalizePathForCompare(jsonlFromBad, datasetRoot);
+        if (string.IsNullOrWhiteSpace(candidate))
         {
             return false;
         }
 
-        string candidate = jsonlFromBad;
-        if (!Path.IsPathRooted(candidate))
+        return string.Equals(candidate, currentJsonlFull, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizePathForCompare(string path, string datasetRoot)
+    {
+        if (string.IsNullOrWhiteSpace(path))
         {
-            candidate = Path.GetFullPath(Path.Combine(datasetRoot, candidate));
+            return string.Empty;
         }
 
-        return string.Equals(Path.GetFullPath(candidate), currentJsonlFull, StringComparison.OrdinalIgnoreCase);
+        string candidate = path;
+        if (!Path.IsPathRooted(candidate))
+        {
+            candidate = Path.Combine(datasetRoot, candidate);
+        }
+
+        candidate = Path.GetFullPath(candidate);
+        return candidate.Replace('\\', '/');
+    }
+
+    private static string BuildKey(string matchId, long number)
+    {
+        return $"{matchId}|{number}";
     }
 
     private void UpdateImagesFromSelection()
