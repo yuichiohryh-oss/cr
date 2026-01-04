@@ -1,4 +1,5 @@
 using System;
+using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -16,6 +17,9 @@ public enum OpenTargetKind
 
 public static class ViewerHelpers
 {
+    private const int BlackThreshold = 16;
+    private const int MinTrimWidth = 4;
+
     public static OpenTargetKind DetectOpenTarget(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -65,6 +69,31 @@ public static class ViewerHelpers
         }
 
         return Path.Combine(matchDir, normalized);
+    }
+
+    public static Bitmap CreateDisplayBitmap(Bitmap source, bool trimBlackBars)
+    {
+        if (!trimBlackBars)
+        {
+            return new Bitmap(source);
+        }
+
+        int leftTrim = CountLeadingBlackColumns(source, fromLeft: true);
+        int rightTrim = CountLeadingBlackColumns(source, fromLeft: false);
+
+        if (leftTrim == 0 && rightTrim == 0)
+        {
+            return new Bitmap(source);
+        }
+
+        int width = source.Width - leftTrim - rightTrim;
+        if (width < 1)
+        {
+            return new Bitmap(source);
+        }
+
+        var rect = new Rectangle(leftTrim, 0, width, source.Height);
+        return source.Clone(rect, source.PixelFormat);
     }
 
     public static bool TryParseLine(string line, out ViewerRecord record, out string? reason)
@@ -238,5 +267,54 @@ public static class ViewerHelpers
         }
 
         return null;
+    }
+
+    private static int CountLeadingBlackColumns(Bitmap source, bool fromLeft)
+    {
+        int width = source.Width;
+        int height = source.Height;
+        if (width <= 0 || height <= 0)
+        {
+            return 0;
+        }
+
+        int count = 0;
+        int start = fromLeft ? 0 : width - 1;
+        int step = fromLeft ? 1 : -1;
+
+        for (int x = start; x >= 0 && x < width; x += step)
+        {
+            if (!IsMostlyBlackColumn(source, x))
+            {
+                break;
+            }
+
+            count++;
+        }
+
+        return count >= MinTrimWidth ? count : 0;
+    }
+
+    private static bool IsMostlyBlackColumn(Bitmap source, int x)
+    {
+        int height = source.Height;
+        int sampleCount = Math.Clamp(height / 8, 3, 24);
+        int step = Math.Max(1, height / sampleCount);
+
+        for (int y = 0; y < height; y += step)
+        {
+            Color color = source.GetPixel(x, y);
+            if (!IsNearlyBlack(color))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsNearlyBlack(Color color)
+    {
+        return color.R <= BlackThreshold && color.G <= BlackThreshold && color.B <= BlackThreshold;
     }
 }

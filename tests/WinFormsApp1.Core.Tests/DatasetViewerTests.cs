@@ -1,4 +1,5 @@
 using System;
+using System.Drawing;
 using System.IO;
 using CrDatasetViewer;
 using Xunit;
@@ -158,4 +159,35 @@ public sealed class DatasetViewerTests
     {
         return path.Replace('\\', '/');
     }
+
+    [Fact]
+    public void TrimsBlackBarsFromLeftAndRight()
+    {
+        using var source = new Bitmap(100, 20);
+        using (var g = Graphics.FromImage(source))
+        {
+            g.Clear(Color.White);
+            g.FillRectangle(Brushes.Black, 0, 0, 10, source.Height);
+            g.FillRectangle(Brushes.Black, source.Width - 10, 0, 10, source.Height);
+        }
+
+        using var trimmed = ViewerHelpers.CreateDisplayBitmap(source, trimBlackBars: true);
+        Assert.Equal(80, trimmed.Width);
+        Assert.Equal(source.Height, trimmed.Height);
+    }
+
+    [Fact]
+    public void DoesNotTrimWhenNoBlackBarsPresent()
+    {
+        using var source = new Bitmap(100, 20);
+        using (var g = Graphics.FromImage(source))
+        {
+            g.Clear(Color.White);
+        }
+
+        using var trimmed = ViewerHelpers.CreateDisplayBitmap(source, trimBlackBars: true);
+        Assert.Equal(source.Width, trimmed.Width);
+        Assert.Equal(source.Height, trimmed.Height);
+    }
+
 }

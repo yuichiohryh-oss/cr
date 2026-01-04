@@ -24,6 +24,7 @@ public sealed class MainForm : Form
     private readonly Button _openMatchDirButton;
     private readonly Button _openJsonlButton;
     private readonly Button _reloadButton;
+    private readonly CheckBox _trimBlackBarsCheck;
 
     private string? _datasetRoot;
     private string? _currentJsonl;
@@ -119,6 +120,7 @@ public sealed class MainForm : Form
         _openMatchDirButton = new Button { Text = "Open Match Folder..." };
         _openJsonlButton = new Button { Text = "Open JSONL File..." };
         _reloadButton = new Button { Text = "Reload" };
+        _trimBlackBarsCheck = new CheckBox { Text = "Trim black bars", AutoSize = true, Checked = true };
         _helpLabel = new Label
         {
             AutoSize = true,
@@ -138,11 +140,13 @@ public sealed class MainForm : Form
                 LoadJsonl(_currentJsonl);
             }
         };
+        _trimBlackBarsCheck.CheckedChanged += (_, _) => UpdateImagesFromSelection();
 
         controlPanel.Controls.Add(_openRootButton);
         controlPanel.Controls.Add(_openMatchDirButton);
         controlPanel.Controls.Add(_openJsonlButton);
         controlPanel.Controls.Add(_reloadButton);
+        controlPanel.Controls.Add(_trimBlackBarsCheck);
         controlPanel.Controls.Add(_helpLabel);
         controlPanel.Controls.Add(_statusLabel);
 
@@ -491,7 +495,8 @@ public sealed class MainForm : Form
         {
             using var img = Image.FromFile(resolved);
             using var baseBmp = new Bitmap(img);
-            var output = new Bitmap(baseBmp);
+            bool trimBlackBars = _trimBlackBarsCheck.Checked;
+            var output = ViewerHelpers.CreateDisplayBitmap(baseBmp, trimBlackBars);
 
             using var g = Graphics.FromImage(output);
             string overlay = BuildOverlayText(row);
