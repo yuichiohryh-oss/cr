@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\WinFormsApp1.Core\WinFormsApp1.Core.csproj" />
+    <ProjectReference Include="..\..\tools\CrDatasetInspector\CrDatasetInspector.csproj" />
   </ItemGroup>
 
   <ItemGroup>
