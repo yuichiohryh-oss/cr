@@ -6,9 +6,11 @@ using System.Linq;
 
 namespace WinFormsApp1.Core;
 
+public readonly record struct FrameSaveResult(string PrevPath, string CurrPath, FrameCrop FrameCrop);
+
 public sealed class FrameSaver
 {
-    public (string PrevPath, string CurrPath)? SaveFrames(
+    public FrameSaveResult? SaveFramesWithCrop(
         Bitmap prev,
         Bitmap curr,
         string baseDir,
@@ -17,7 +19,8 @@ public sealed class FrameSaver
         int jpegQuality,
         int maxWidth,
         long matchElapsedMs,
-        long frameIndex)
+        long frameIndex,
+        FrameTrimSettings trimSettings)
     {
         if (prev == null || curr == null)
         {
@@ -36,8 +39,16 @@ public sealed class FrameSaver
         string prevPath = Path.Combine(framesDir, prevName);
         string currPath = Path.Combine(framesDir, currName);
 
-        using (Bitmap prevToSave = ResizeIfNeeded(prev, maxWidth))
-        using (Bitmap currToSave = ResizeIfNeeded(curr, maxWidth))
+        FrameCrop crop = FrameCrop.None;
+        if (FrameTrimmer.TryDetectLeftRightCrop(prev, trimSettings, out FrameCrop detected))
+        {
+            crop = detected;
+        }
+
+        using (Bitmap prevCropped = FrameTrimmer.ApplyCrop(prev, crop))
+        using (Bitmap currCropped = FrameTrimmer.ApplyCrop(curr, crop))
+        using (Bitmap prevToSave = ResizeIfNeeded(prevCropped, maxWidth))
+        using (Bitmap currToSave = ResizeIfNeeded(currCropped, maxWidth))
         {
             SaveImage(prevToSave, prevPath, extension, jpegQuality);
             SaveImage(currToSave, currPath, extension, jpegQuality);
@@ -45,7 +56,37 @@ public sealed class FrameSaver
 
         string relPrev = Path.Combine(dirName, prevName).Replace('\\', '/');
         string relCurr = Path.Combine(dirName, currName).Replace('\\', '/');
-        return (relPrev, relCurr);
+        return new FrameSaveResult(relPrev, relCurr, crop);
+    }
+
+    public (string PrevPath, string CurrPath)? SaveFrames(
+        Bitmap prev,
+        Bitmap curr,
+        string baseDir,
+        string framesDirName,
+        string imageFormat,
+        int jpegQuality,
+        int maxWidth,
+        long matchElapsedMs,
+        long frameIndex)
+    {
+        FrameSaveResult? saved = SaveFramesWithCrop(
+            prev,
+            curr,
+            baseDir,
+            framesDirName,
+            imageFormat,
+            jpegQuality,
+            maxWidth,
+            matchElapsedMs,
+            frameIndex,
+            FrameTrimSettings.Disabled);
+        if (!saved.HasValue)
+        {
+            return null;
+        }
+
+        return (saved.Value.PrevPath, saved.Value.CurrPath);
     }
 
     private static string NormalizeExtension(string? format)

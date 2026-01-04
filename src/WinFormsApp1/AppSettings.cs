@@ -75,6 +75,13 @@ public sealed class AppSettings
                 FrameImageFormat = "png",
                 FrameJpegQuality = 90,
                 MaxSavedFrameWidth = 0,
+                TrimSavedFrames = true,
+                TrimSavedFramesMode = "LeftRight",
+                TrimBlackThreshold = 16,
+                TrimBlackSampleStride = 8,
+                TrimBlackMinRatio = 0.90f,
+                TrimMaxRatio = 0.20f,
+                TrimMinContentWidth = 200,
                 RecentSpawnSeconds = 4,
                 PendingTimeoutMs = 1500,
                 ElixirCommitTolerance = 1,
@@ -232,6 +239,13 @@ public sealed class TrainingSettingsDto
     public string FrameImageFormat { get; set; } = string.Empty;
     public int FrameJpegQuality { get; set; }
     public int MaxSavedFrameWidth { get; set; }
+    public bool TrimSavedFrames { get; set; }
+    public string TrimSavedFramesMode { get; set; } = string.Empty;
+    public int TrimBlackThreshold { get; set; }
+    public int TrimBlackSampleStride { get; set; }
+    public float TrimBlackMinRatio { get; set; }
+    public float TrimMaxRatio { get; set; }
+    public int TrimMinContentWidth { get; set; }
     public int RecentSpawnSeconds { get; set; }
     public int PendingTimeoutMs { get; set; }
     public int ElixirCommitTolerance { get; set; }
@@ -251,7 +265,14 @@ public sealed class TrainingSettingsDto
             FramesDirName,
             FrameImageFormat,
             FrameJpegQuality,
-            MaxSavedFrameWidth);
+            MaxSavedFrameWidth,
+            TrimSavedFrames,
+            TrimSavedFramesMode,
+            TrimBlackThreshold,
+            TrimBlackSampleStride,
+            TrimBlackMinRatio,
+            TrimMaxRatio,
+            TrimMinContentWidth);
     }
 
     public override string ToString() => "Training";
