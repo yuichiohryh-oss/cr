@@ -7,4 +7,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/WinFormsApp1.Core.Tests/WinFormsApp1.Core.Tests.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/CrDatasetInspector/CrDatasetInspector.csproj" />
+  </Folder>
 </Solution>

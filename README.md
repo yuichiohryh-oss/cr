@@ -105,3 +105,24 @@ roles は `Spell`, `Building`, `Defensive`, `Cycle`, `WinCondition` を使用し
 - [x] Phase 2: Motion + Elixir + Hand->Card suggestion + config
 - [x] Phase 3: HPバー検出のブートストラップ
 - [ ] Phase 4: 敵ユニット分類 + 精度調整 + fixtures + parameter UI
+
+## Dataset Inspector CLI
+
+per-match JSONL と frames の整合を検査する CLI を追加しました。
+
+実行例:
+
+```
+dotnet run --project tools/CrDatasetInspector -- dataset --jsonl-glob "*.jsonl" --out dataset/_inspect
+```
+
+出力:
+- summary.md
+- report.json
+- bad_rows.jsonl
+
+チェック内容:
+- match_id の一貫性
+- frame_index / match_elapsed_ms の単調増加
+- prev/curr の相対パスと frames/ 配下の存在確認
+- (optional) 画像ロードによる破損検知 (--verify-image-load)
