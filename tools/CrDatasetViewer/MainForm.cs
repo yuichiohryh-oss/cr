@@ -94,15 +94,7 @@ public sealed class MainForm : Form
         };
         _grid.SelectionChanged += (_, _) => UpdateImagesFromSelection();
 
-        _grid.Columns.Add(CreateTextColumn("LineNumber", "Line"));
-        _grid.Columns.Add(CreateTextColumn("FrameIndex", "Frame"));
-        _grid.Columns.Add(CreateTextColumn("MatchElapsedMs", "Elapsed"));
-        _grid.Columns.Add(CreateTextColumn("MatchId", "Match"));
-        _grid.Columns.Add(CreateTextColumn("ActionSummary", "Action"));
-        _grid.Columns.Add(CreateTextColumn("PrevFramePath", "Prev"));
-        _grid.Columns.Add(CreateTextColumn("CurrFramePath", "Curr"));
-        _grid.Columns.Add(CreateTextColumn("IsBad", "Bad"));
-        _grid.Columns.Add(CreateTextColumn("BadReason", "Reason"));
+        ConfigureGridColumns();
 
         _grid.CellFormatting += Grid_CellFormatting;
         _grid.CellToolTipTextNeeded += Grid_CellToolTipTextNeeded;
@@ -207,6 +199,20 @@ public sealed class MainForm : Form
             HeaderText = header,
             AutoSizeMode = DataGridViewAutoSizeColumnMode.DisplayedCells
         };
+    }
+
+    private void ConfigureGridColumns()
+    {
+        _grid.Columns.Clear();
+        _grid.Columns.Add(CreateTextColumn("LineNumber", "Line"));
+        _grid.Columns.Add(CreateTextColumn("FrameIndex", "Frame"));
+        _grid.Columns.Add(CreateTextColumn("MatchElapsedMs", "Elapsed"));
+        _grid.Columns.Add(CreateTextColumn("MatchId", "Match"));
+        _grid.Columns.Add(CreateTextColumn("ActionSummary", "Action"));
+        _grid.Columns.Add(CreateTextColumn("PrevFramePath", "Prev"));
+        _grid.Columns.Add(CreateTextColumn("CurrFramePath", "Curr"));
+        _grid.Columns.Add(CreateTextColumn("IsBad", "Bad"));
+        _grid.Columns.Add(CreateTextColumn("BadReason", "Reason"));
     }
 
     private void Grid_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
