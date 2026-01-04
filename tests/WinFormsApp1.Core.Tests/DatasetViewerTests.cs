@@ -68,6 +68,92 @@ public sealed class DatasetViewerTests
         Assert.Equal("frames/c.png", record.CurrFramePath);
     }
 
+    [Fact]
+    public void DetectsJsonlFileTarget()
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"cr_viewer_{Guid.NewGuid():N}");
+        try
+        {
+            Directory.CreateDirectory(root);
+            string jsonl = Path.Combine(root, "match.jsonl");
+            File.WriteAllText(jsonl, "{}");
+
+            Assert.Equal(OpenTargetKind.JsonlFile, ViewerHelpers.DetectOpenTarget(jsonl));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, true);
+            }
+        }
+    }
+
+    [Fact]
+    public void DetectsMatchFolderTarget()
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"cr_viewer_{Guid.NewGuid():N}");
+        try
+        {
+            string matchDir = Path.Combine(root, "m1");
+            Directory.CreateDirectory(matchDir);
+            Directory.CreateDirectory(Path.Combine(matchDir, "frames"));
+            File.WriteAllText(Path.Combine(matchDir, "m1.jsonl"), "{}");
+
+            Assert.Equal(OpenTargetKind.MatchFolder, ViewerHelpers.DetectOpenTarget(matchDir));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, true);
+            }
+        }
+    }
+
+    [Fact]
+    public void DetectsDatasetRootTarget()
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"cr_viewer_{Guid.NewGuid():N}");
+        try
+        {
+            string matchDir = Path.Combine(root, "m1");
+            Directory.CreateDirectory(matchDir);
+            File.WriteAllText(Path.Combine(matchDir, "m1.jsonl"), "{}");
+
+            Assert.Equal(OpenTargetKind.DatasetRoot, ViewerHelpers.DetectOpenTarget(root));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, true);
+            }
+        }
+    }
+
+    [Fact]
+    public void DetectsUnknownTarget()
+    {
+        string root = Path.Combine(Path.GetTempPath(), $"cr_viewer_{Guid.NewGuid():N}");
+        try
+        {
+            Directory.CreateDirectory(root);
+            string file = Path.Combine(root, "readme.txt");
+            File.WriteAllText(file, "hi");
+
+            Assert.Equal(OpenTargetKind.Unknown, ViewerHelpers.DetectOpenTarget(root));
+            Assert.Equal(OpenTargetKind.Unknown, ViewerHelpers.DetectOpenTarget(file));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, true);
+            }
+        }
+    }
+
     private static string Normalize(string path)
     {
         return path.Replace('\\', '/');

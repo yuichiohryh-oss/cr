@@ -41,6 +41,24 @@ public sealed class MainForm : Form
         Width = 1400;
         Height = 900;
         KeyPreview = true;
+        AllowDrop = true;
+
+        DragEnter += (_, e) =>
+        {
+            if (e.Data != null && e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                e.Effect = DragDropEffects.Copy;
+            }
+        };
+        DragDrop += (_, e) =>
+        {
+            if (e.Data?.GetData(DataFormats.FileDrop) is not string[] items || items.Length == 0)
+            {
+                return;
+            }
+
+            OpenDroppedPath(items[0]);
+        };
 
         var mainSplit = new SplitContainer
         {
@@ -191,26 +209,29 @@ public sealed class MainForm : Form
     private void SelectDatasetRoot()
     {
         using var dialog = new FolderBrowserDialog();
+        string? initial = GetExistingDirectory(ViewerSettings.Default.LastDatasetRoot);
+        if (!string.IsNullOrWhiteSpace(initial))
+        {
+            dialog.SelectedPath = initial;
+        }
         if (dialog.ShowDialog(this) == DialogResult.OK)
         {
-            _datasetRoot = dialog.SelectedPath;
-            LoadJsonlListFromRoot(_datasetRoot);
+            OpenDatasetRoot(dialog.SelectedPath);
         }
     }
 
     private void SelectMatchDir()
     {
         using var dialog = new FolderBrowserDialog();
+        string? initial = GetExistingDirectory(ViewerSettings.Default.LastMatchFolder)
+            ?? GetExistingDirectory(ViewerSettings.Default.LastDatasetRoot);
+        if (!string.IsNullOrWhiteSpace(initial))
+        {
+            dialog.SelectedPath = initial;
+        }
         if (dialog.ShowDialog(this) == DialogResult.OK)
         {
-            _datasetRoot = Directory.GetParent(dialog.SelectedPath)?.FullName;
-            string? jsonl = Directory.EnumerateFiles(dialog.SelectedPath, "*.jsonl", SearchOption.TopDirectoryOnly).FirstOrDefault();
-            if (!string.IsNullOrWhiteSpace(jsonl))
-            {
-                _jsonlList.Items.Clear();
-                _jsonlList.Items.Add(new JsonlEntry(jsonl, Path.GetFileName(jsonl)));
-                _jsonlList.SelectedIndex = 0;
-            }
+            OpenMatchFolder(dialog.SelectedPath);
         }
     }
 
@@ -220,12 +241,14 @@ public sealed class MainForm : Form
         {
             Filter = "JSONL (*.jsonl)|*.jsonl|All files (*.*)|*.*"
         };
+        string? initialDir = GetInitialJsonlDirectory();
+        if (!string.IsNullOrWhiteSpace(initialDir))
+        {
+            dialog.InitialDirectory = initialDir;
+        }
         if (dialog.ShowDialog(this) == DialogResult.OK)
         {
-            _datasetRoot = Directory.GetParent(dialog.FileName)?.Parent?.FullName;
-            _jsonlList.Items.Clear();
-            _jsonlList.Items.Add(new JsonlEntry(dialog.FileName, Path.GetFileName(dialog.FileName)));
-            _jsonlList.SelectedIndex = 0;
+            OpenJsonlFile(dialog.FileName);
         }
     }
 
@@ -276,7 +299,6 @@ public sealed class MainForm : Form
         _grid.DataSource = _rows;
         _grid.ClearSelection();
         ApplyBadRowStyle();
-        _statusLabel.Text = Path.GetFileName(path);
         UpdateImagesFromSelection();
     }
 
@@ -607,5 +629,114 @@ public sealed class MainForm : Form
     private sealed record JsonlEntry(string FullPath, string DisplayName)
     {
         public override string ToString() => DisplayName;
+    }
+
+    private void OpenDroppedPath(string path)
+    {
+        OpenTargetKind kind = ViewerHelpers.DetectOpenTarget(path);
+        switch (kind)
+        {
+            case OpenTargetKind.JsonlFile:
+                OpenJsonlFile(path);
+                break;
+            case OpenTargetKind.MatchFolder:
+                OpenMatchFolder(path);
+                break;
+            case OpenTargetKind.DatasetRoot:
+                OpenDatasetRoot(path);
+                break;
+            default:
+                ShowDropError(path);
+                break;
+        }
+    }
+
+    private void OpenDatasetRoot(string path)
+    {
+        _datasetRoot = path;
+        LoadJsonlListFromRoot(path);
+        UpdateStatus(OpenTargetKind.DatasetRoot, path);
+
+        ViewerSettings.Default.LastDatasetRoot = path;
+        ViewerSettings.Default.Save();
+    }
+
+    private void OpenMatchFolder(string path)
+    {
+        string? jsonl = Directory.EnumerateFiles(path, "*.jsonl", SearchOption.TopDirectoryOnly).FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(jsonl))
+        {
+            MessageBox.Show(this, "No JSONL found in the selected match folder.\nPick dataset/<matchId> that contains a *.jsonl file.", "Open Match Folder", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        _datasetRoot = Directory.GetParent(path)?.FullName;
+        _jsonlList.Items.Clear();
+        _jsonlList.Items.Add(new JsonlEntry(jsonl, Path.GetFileName(jsonl)));
+        _jsonlList.SelectedIndex = 0;
+        UpdateStatus(OpenTargetKind.MatchFolder, path);
+
+        ViewerSettings.Default.LastMatchFolder = path;
+        ViewerSettings.Default.LastDatasetRoot = _datasetRoot ?? ViewerSettings.Default.LastDatasetRoot;
+        ViewerSettings.Default.LastJsonlFile = jsonl;
+        ViewerSettings.Default.Save();
+    }
+
+    private void OpenJsonlFile(string path)
+    {
+        _datasetRoot = Directory.GetParent(path)?.Parent?.FullName;
+        _jsonlList.Items.Clear();
+        _jsonlList.Items.Add(new JsonlEntry(path, Path.GetFileName(path)));
+        _jsonlList.SelectedIndex = 0;
+        UpdateStatus(OpenTargetKind.JsonlFile, path);
+
+        ViewerSettings.Default.LastMatchFolder = Directory.GetParent(path)?.FullName ?? ViewerSettings.Default.LastMatchFolder;
+        ViewerSettings.Default.LastJsonlFile = path;
+        ViewerSettings.Default.LastDatasetRoot = _datasetRoot ?? ViewerSettings.Default.LastDatasetRoot;
+        ViewerSettings.Default.Save();
+    }
+
+    private void UpdateStatus(OpenTargetKind kind, string path)
+    {
+        string label = kind switch
+        {
+            OpenTargetKind.DatasetRoot => "Dataset Root",
+            OpenTargetKind.MatchFolder => "Match Folder",
+            OpenTargetKind.JsonlFile => "JSONL File",
+            _ => "Unknown"
+        };
+        _statusLabel.Text = $"Opened: {label} — {path}";
+    }
+
+    private static string? GetExistingDirectory(string? path)
+    {
+        return !string.IsNullOrWhiteSpace(path) && Directory.Exists(path) ? path : null;
+    }
+
+    private static string? GetInitialJsonlDirectory()
+    {
+        string lastJsonl = ViewerSettings.Default.LastJsonlFile;
+        if (!string.IsNullOrWhiteSpace(lastJsonl) && File.Exists(lastJsonl))
+        {
+            return Path.GetDirectoryName(lastJsonl);
+        }
+
+        string? match = GetExistingDirectory(ViewerSettings.Default.LastMatchFolder);
+        if (!string.IsNullOrWhiteSpace(match))
+        {
+            return match;
+        }
+
+        return GetExistingDirectory(ViewerSettings.Default.LastDatasetRoot);
+    }
+
+    private void ShowDropError(string path)
+    {
+        MessageBox.Show(
+            this,
+            $"Unsupported drop target:\n{path}\n\nDrop one of:\n- dataset root folder (containing <matchId> subfolders)\n- match folder (dataset/<matchId> with a *.jsonl file)\n- match_*.jsonl file",
+            "Drag & Drop",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Information);
     }
 }
