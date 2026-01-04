@@ -166,6 +166,60 @@ public sealed class DatasetViewerTests
         Assert.Equal(expected, formatted);
     }
 
+    [Fact]
+    public void MapsImagePointToControlPoint_WhenControlMatchesImage()
+    {
+        bool ok = ViewerHelpers.TryMapImagePointToControlPoint(
+            imageWidth: 100,
+            imageHeight: 100,
+            controlWidth: 100,
+            controlHeight: 100,
+            imageX: 50f,
+            imageY: 50f,
+            out float controlX,
+            out float controlY);
+
+        Assert.True(ok);
+        Assert.Equal(50f, controlX, 3);
+        Assert.Equal(50f, controlY, 3);
+    }
+
+    [Fact]
+    public void MapsNormalizedPointWithFrameCrop()
+    {
+        var crop = new CrDatasetViewer.FrameCrop(Left: 100, Top: 0, Right: 100, Bottom: 0);
+        bool ok = ViewerHelpers.TryMapNormalizedPointToImagePoint(
+            x01: 0.5,
+            y01: 0.5,
+            imageWidth: 800,
+            imageHeight: 600,
+            crop,
+            out float imageX,
+            out float imageY);
+
+        Assert.True(ok);
+        Assert.Equal(400f, imageX, 3);
+        Assert.Equal(300f, imageY, 3);
+    }
+
+    [Fact]
+    public void MapsImagePointToControlPoint_WithHorizontalLetterbox()
+    {
+        bool ok = ViewerHelpers.TryMapImagePointToControlPoint(
+            imageWidth: 100,
+            imageHeight: 100,
+            controlWidth: 200,
+            controlHeight: 100,
+            imageX: 50f,
+            imageY: 50f,
+            out float controlX,
+            out float controlY);
+
+        Assert.True(ok);
+        Assert.Equal(100f, controlX, 3);
+        Assert.Equal(50f, controlY, 3);
+    }
+
     private static string Normalize(string path)
     {
         return path.Replace('\\', '/');

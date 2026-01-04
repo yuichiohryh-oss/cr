@@ -9,6 +9,10 @@ public sealed class ViewerRow
     public string PrevFramePath { get; set; } = string.Empty;
     public string CurrFramePath { get; set; } = string.Empty;
     public string ActionSummary { get; set; } = string.Empty;
+    public double? PlotX01 { get; set; }
+    public double? PlotY01 { get; set; }
+    public string PlotLabel { get; set; } = string.Empty;
+    public FrameCrop FrameCrop { get; set; } = FrameCrop.None;
     public bool IsBad { get; set; }
     public string BadReason { get; set; } = string.Empty;
     public string RawLine { get; set; } = string.Empty;
@@ -23,7 +27,11 @@ public sealed class ViewerRow
             MatchId = record.MatchId,
             PrevFramePath = record.PrevFramePath,
             CurrFramePath = record.CurrFramePath,
-            ActionSummary = record.ActionSummary
+            ActionSummary = record.ActionSummary,
+            PlotX01 = record.PlotX01,
+            PlotY01 = record.PlotY01,
+            PlotLabel = record.PlotLabel,
+            FrameCrop = record.FrameCrop
         };
     }
 
@@ -51,7 +59,16 @@ public readonly record struct ViewerRecord(
     long FrameIndex,
     string PrevFramePath,
     string CurrFramePath,
-    string ActionSummary);
+    string ActionSummary,
+    double? PlotX01,
+    double? PlotY01,
+    string PlotLabel,
+    FrameCrop FrameCrop);
+
+public readonly record struct FrameCrop(int Left, int Top, int Right, int Bottom)
+{
+    public static FrameCrop None => new(0, 0, 0, 0);
+}
 
 public readonly record struct BadRowInfo(
     string JsonlFile,

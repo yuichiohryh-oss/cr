@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -24,6 +25,7 @@ public sealed class MainForm : Form
     private readonly Button _openMatchDirButton;
     private readonly Button _openJsonlButton;
     private readonly Button _reloadButton;
+    private readonly CheckBox _plotActionCurrCheckBox;
 
     private string? _datasetRoot;
     private string? _currentJsonl;
@@ -114,6 +116,12 @@ public sealed class MainForm : Form
         _openMatchDirButton = new Button { Text = "Open Match Folder..." };
         _openJsonlButton = new Button { Text = "Open JSONL File..." };
         _reloadButton = new Button { Text = "Reload" };
+        _plotActionCurrCheckBox = new CheckBox
+        {
+            Text = "Plot action position (Curr)",
+            Checked = true,
+            AutoSize = true
+        };
         _helpLabel = new Label
         {
             AutoSize = true,
@@ -138,6 +146,7 @@ public sealed class MainForm : Form
         controlPanel.Controls.Add(_openMatchDirButton);
         controlPanel.Controls.Add(_openJsonlButton);
         controlPanel.Controls.Add(_reloadButton);
+        controlPanel.Controls.Add(_plotActionCurrCheckBox);
         controlPanel.Controls.Add(_helpLabel);
         controlPanel.Controls.Add(_statusLabel);
 
@@ -162,6 +171,8 @@ public sealed class MainForm : Form
         _currLabel = new Label { Text = "Curr", Dock = DockStyle.Fill, AutoSize = true };
         _prevBox = new PictureBox { Dock = DockStyle.Fill, SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Black };
         _currBox = new PictureBox { Dock = DockStyle.Fill, SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Black };
+        _currBox.Paint += CurrBox_Paint;
+        _plotActionCurrCheckBox.CheckedChanged += (_, _) => _currBox.Invalidate();
 
         rightPanel.Controls.Add(_prevLabel, 0, 0);
         rightPanel.Controls.Add(_currLabel, 1, 0);
@@ -571,6 +582,7 @@ public sealed class MainForm : Form
         }
 
         target.Image = image;
+        target.Invalidate();
     }
 
     private void ClearImages()
@@ -579,6 +591,77 @@ public sealed class MainForm : Form
         _currLabel.Text = "Curr";
         SetImage(_prevBox, null);
         SetImage(_currBox, null);
+    }
+
+    private void CurrBox_Paint(object? sender, PaintEventArgs e)
+    {
+        if (!_plotActionCurrCheckBox.Checked)
+        {
+            return;
+        }
+
+        if (_grid.CurrentRow?.DataBoundItem is not ViewerRow row)
+        {
+            return;
+        }
+
+        if (!row.PlotX01.HasValue || !row.PlotY01.HasValue)
+        {
+            return;
+        }
+
+        if (_currBox.Image == null)
+        {
+            return;
+        }
+
+        if (!ViewerHelpers.TryMapNormalizedPointToImagePoint(
+                row.PlotX01.Value,
+                row.PlotY01.Value,
+                _currBox.Image.Width,
+                _currBox.Image.Height,
+                row.FrameCrop,
+                out float imageX,
+                out float imageY))
+        {
+            return;
+        }
+
+        if (!ViewerHelpers.TryMapImagePointToControlPoint(
+                _currBox.Image.Width,
+                _currBox.Image.Height,
+                _currBox.ClientSize.Width,
+                _currBox.ClientSize.Height,
+                imageX,
+                imageY,
+                out float controlX,
+                out float controlY))
+        {
+            return;
+        }
+
+        if (controlX < 0f || controlY < 0f
+            || controlX > _currBox.ClientSize.Width
+            || controlY > _currBox.ClientSize.Height)
+        {
+            return;
+        }
+
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        const float radius = 8f;
+        using var pen = new Pen(Color.Lime, 2f);
+        using var brush = new SolidBrush(Color.Lime);
+        e.Graphics.DrawLine(pen, controlX - 12f, controlY, controlX + 12f, controlY);
+        e.Graphics.DrawLine(pen, controlX, controlY - 12f, controlX, controlY + 12f);
+        e.Graphics.DrawEllipse(pen, controlX - radius, controlY - radius, radius * 2f, radius * 2f);
+        e.Graphics.FillEllipse(brush, controlX - 2f, controlY - 2f, 4f, 4f);
+
+        if (!string.IsNullOrWhiteSpace(row.PlotLabel))
+        {
+            using var font = new Font("Segoe UI", 9f, FontStyle.Bold);
+            using var labelBrush = new SolidBrush(Color.Lime);
+            e.Graphics.DrawString(row.PlotLabel, font, labelBrush, controlX + 10f, controlY + 10f);
+        }
     }
 
     private static string BuildOverlayText(ViewerRow row)
