@@ -91,13 +91,15 @@ public sealed class MainForm : Form
             AllowUserToAddRows = false,
             AllowUserToDeleteRows = false,
             SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-            MultiSelect = false
+            MultiSelect = false,
+            ShowCellToolTips = true
         };
         _grid.SelectionChanged += (_, _) => UpdateImagesFromSelection();
+        _grid.CellFormatting += (_, e) => FormatElapsedCell(e);
 
         _grid.Columns.Add(CreateTextColumn("LineNumber", "Line"));
         _grid.Columns.Add(CreateTextColumn("FrameIndex", "Frame"));
-        _grid.Columns.Add(CreateTextColumn("MatchElapsedMs", "Elapsed(ms)"));
+        _grid.Columns.Add(CreateTextColumn("MatchElapsedMs", "Elapsed"));
         _grid.Columns.Add(CreateTextColumn("MatchId", "Match"));
         _grid.Columns.Add(CreateTextColumn("ActionSummary", "Action"));
         _grid.Columns.Add(CreateTextColumn("PrevFramePath", "Prev"));
@@ -743,5 +745,27 @@ public sealed class MainForm : Form
             "Drag & Drop",
             MessageBoxButtons.OK,
             MessageBoxIcon.Information);
+    }
+
+    private void FormatElapsedCell(DataGridViewCellFormattingEventArgs e)
+    {
+        if (e.RowIndex < 0 || e.ColumnIndex < 0)
+        {
+            return;
+        }
+
+        if (_grid.Columns[e.ColumnIndex].DataPropertyName != "MatchElapsedMs")
+        {
+            return;
+        }
+
+        if (_grid.Rows[e.RowIndex].DataBoundItem is not ViewerRow row)
+        {
+            return;
+        }
+
+        e.Value = ViewerHelpers.FormatElapsed(row.MatchElapsedMs);
+        e.FormattingApplied = true;
+        _grid.Rows[e.RowIndex].Cells[e.ColumnIndex].ToolTipText = $"{row.MatchElapsedMs}ms";
     }
 }

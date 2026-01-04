@@ -190,4 +190,18 @@ public sealed class DatasetViewerTests
         Assert.Equal(source.Height, trimmed.Height);
     }
 
+    [Fact]
+    public void FormatsElapsedUnderOneMinute()
+    {
+        string formatted = ViewerHelpers.FormatElapsed(12345);
+        Assert.Equal("12.345s", formatted);
+    }
+
+    [Fact]
+    public void FormatsElapsedOverOneMinute()
+    {
+        string formatted = ViewerHelpers.FormatElapsed(62345);
+        Assert.Equal("1:02.345", formatted);
+    }
+
 }

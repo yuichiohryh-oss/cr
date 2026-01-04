@@ -71,6 +71,26 @@ public static class ViewerHelpers
         return Path.Combine(matchDir, normalized);
     }
 
+    public static string FormatElapsed(long matchElapsedMs)
+    {
+        if (matchElapsedMs < 0)
+        {
+            return $"{matchElapsedMs}ms";
+        }
+
+        long minutes = matchElapsedMs / 60000;
+        long seconds = matchElapsedMs / 1000;
+        long msPart = matchElapsedMs % 1000;
+
+        if (matchElapsedMs < 60000)
+        {
+            return $"{seconds}.{msPart:000}s";
+        }
+
+        long minutesSeconds = seconds % 60;
+        return $"{minutes}:{minutesSeconds:00}.{msPart:000}";
+    }
+
     public static Bitmap CreateDisplayBitmap(Bitmap source, bool trimBlackBars)
     {
         if (!trimBlackBars)
