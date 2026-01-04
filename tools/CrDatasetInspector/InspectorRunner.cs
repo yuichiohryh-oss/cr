@@ -256,25 +256,25 @@ public sealed class InspectorRunner
             using JsonDocument doc = JsonDocument.Parse(line);
             JsonElement root = doc.RootElement;
 
-            if (!TryGetString(root, "matchId", out string matchId))
+            if (!TryGetStringAny(root, out string matchId, "matchId", "match_id"))
             {
                 matchId = string.Empty;
             }
 
-            if (!TryGetLong(root, "matchElapsedMs", out long matchElapsed))
+            if (!TryGetLongAny(root, out long matchElapsed, "matchElapsedMs", "match_elapsed_ms"))
             {
                 reason = "missing_match_elapsed_ms";
                 return false;
             }
 
-            if (!TryGetLong(root, "frameIndex", out long frameIndex))
+            if (!TryGetLongAny(root, out long frameIndex, "frameIndex", "frame_index"))
             {
                 reason = "missing_frame_index";
                 return false;
             }
 
-            TryGetString(root, "prevFramePath", out string prevPath);
-            TryGetString(root, "currFramePath", out string currPath);
+            TryGetStringAny(root, out string prevPath, "prevFramePath", "prev_frame_path");
+            TryGetStringAny(root, out string currPath, "currFramePath", "curr_frame_path");
 
             parsed = new ParsedLine(matchId, matchElapsed, frameIndex, prevPath, currPath);
             return true;
@@ -286,23 +286,31 @@ public sealed class InspectorRunner
         }
     }
 
-    private static bool TryGetString(JsonElement root, string name, out string value)
+    private static bool TryGetStringAny(JsonElement root, out string value, params string[] names)
     {
-        if (root.TryGetProperty(name, out JsonElement element) && element.ValueKind == JsonValueKind.String)
+        for (int i = 0; i < names.Length; i++)
         {
-            value = element.GetString() ?? string.Empty;
-            return true;
+            string name = names[i];
+            if (root.TryGetProperty(name, out JsonElement element) && element.ValueKind == JsonValueKind.String)
+            {
+                value = element.GetString() ?? string.Empty;
+                return true;
+            }
         }
 
         value = string.Empty;
         return false;
     }
 
-    private static bool TryGetLong(JsonElement root, string name, out long value)
+    private static bool TryGetLongAny(JsonElement root, out long value, params string[] names)
     {
-        if (root.TryGetProperty(name, out JsonElement element) && element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out value))
+        for (int i = 0; i < names.Length; i++)
         {
-            return true;
+            string name = names[i];
+            if (root.TryGetProperty(name, out JsonElement element) && element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out value))
+            {
+                return true;
+            }
         }
 
         value = 0;
