@@ -142,3 +142,16 @@ dotnet run --project tools/CrDatasetViewer
 - DataGridView で行一覧表示
 - prev/curr 画像を並べて表示 (オーバーレイ付き)
 - bad_rows.jsonl があれば行ハイライト + N/P でジャンプ
+
+## AI利用時の定型文（新規チャット開始用）
+
+このリポジトリで新規に AI（ChatGPT / Codex 等）を使って開発相談・実装依頼を行う場合は、
+**最初に以下の文をそのまま貼り付けてください。**
+
+```
+このリポジトリには AGENTS.md と docs/AI_PROMPT_TEMPLATE.md があります。
+それらを前提として、既存設計（per-match JSONL、frames相対パス、Resolver方式、System.Drawingベース）を壊さず、
+PRベースで開発を継続してください。
+```
+
+この定型文を使うことで、新規チャットでも文脈ロスや設計逸脱を防ぐことができます。
